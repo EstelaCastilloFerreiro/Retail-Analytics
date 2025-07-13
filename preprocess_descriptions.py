@@ -1,9 +1,15 @@
 import pandas as pd
 import re
-import spacy
-from spacy.pipeline import EntityRuler
-from spacy.matcher import PhraseMatcher
 import streamlit as st
+
+# Optional spacy import
+try:
+    import spacy
+    from spacy.pipeline import EntityRuler
+    from spacy.matcher import PhraseMatcher
+    SPACY_AVAILABLE = True
+except ImportError:
+    SPACY_AVAILABLE = False
 
 def preprocess_description_files(uploaded_files):
     """
@@ -717,10 +723,14 @@ def preprocess_description_files(uploaded_files):
     ]
     
     # Initialize spaCy
+    if not SPACY_AVAILABLE:
+        st.warning("⚠️ Spacy not available. Description analysis will be limited.")
+        return None
+    
     try:
         nlp = spacy.load("es_core_news_sm")
     except OSError:
-        st.error("❌ Spanish language model not found. Please install: python -m spacy download es_core_news_sm")
+        st.warning("⚠️ Spanish language model not found. Description analysis will be limited.")
         return None
     
     # Setup matcher
