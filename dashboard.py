@@ -12,6 +12,18 @@ from datetime import datetime, timedelta
 import numpy as np
 from catboost import Pool
 import io
+import subprocess
+import sys
+
+# Install spacy model if not available
+try:
+    import spacy
+    nlp = spacy.load("es_core_news_sm")
+except OSError:
+    st.info("Installing Spanish language model for spacy...")
+    subprocess.check_call([sys.executable, "-m", "spacy", "download", "es_core_news_sm"])
+    import spacy
+    nlp = spacy.load("es_core_news_sm")
 
 
 # Configuración estilo gráfico general (sin líneas de fondo)
