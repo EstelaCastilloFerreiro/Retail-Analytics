@@ -15,15 +15,14 @@ python -m spacy download es_core_news_sm
 streamlit run dashboard.py
 ```
 
-### GitHub Codespaces
-1. Open this repository in GitHub Codespaces
-2. In the terminal, run:
-   ```bash
-   pip install -r requirements.txt
-   python -m spacy download es_core_news_sm
-   streamlit run dashboard.py --server.port 8501 --server.address 0.0.0.0
-   ```
-3. Click "Open in Browser" when prompted, or manually open the forwarded port
+### Streamlit Cloud Deployment
+1. Go to https://share.streamlit.io/
+2. Sign in with your GitHub account
+3. Select this repository: `carlotapprieto/Trucco_clean`
+4. Set the main file path to: `dashboard.py`
+5. Deploy!
+
+The app will automatically install the Spanish spacy model during deployment.
 
 ### Resources
 - Main dashboard: `dashboard.py`
