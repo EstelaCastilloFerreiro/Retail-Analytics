@@ -584,14 +584,14 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                     use_container_width=True
                 )
             else:
-                # Mostrar top 20 y bottom 20 como antes
+                # Mostrar top 30 tiendas con más ventas por Beneficio
                 with col2:
-                    # Top 20 tiendas con más ventas por Beneficio
-                    viz_title("Top 20 tiendas con más ventas")
-                    top_20_tiendas = ventas_por_tienda_completo.head(20)
+                    # Top 30 tiendas con más ventas
+                    viz_title("Top 30 tiendas con más ventas")
+                    top_30_tiendas = ventas_por_tienda_completo.head(30)
                     
                     fig = px.bar(
-                        top_20_tiendas,
+                        top_30_tiendas,
                         x='Tienda',
                         y='Beneficio',
                         color='Beneficio',
@@ -610,18 +610,18 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                         texttemplate='%{y:,.2f}€',
                         textposition='outside',
                         hovertemplate="Tienda: %{x}<br>Ventas: %{y:,.2f}€<br>Unidades: %{customdata:,}<extra></extra>",
-                        customdata=top_20_tiendas['Unidades Vendidas'],
+                        customdata=top_30_tiendas['Unidades Vendidas'],
                         opacity=0.8
                     )
                     st.plotly_chart(fig, use_container_width=True)
 
                 with col3:
-                    # Top 20 tiendas con menos ventas por Beneficio
-                    viz_title("Top 20 tiendas con menos ventas")
-                    bottom_20_tiendas = ventas_por_tienda_completo.tail(20)
+                    # Top 30 tiendas con menos ventas por Beneficio
+                    viz_title("Top 30 tiendas con menos ventas")
+                    bottom_30_tiendas = ventas_por_tienda_completo.tail(30)
                     
                     fig = px.bar(
-                        bottom_20_tiendas,
+                        bottom_30_tiendas,
                         x='Tienda',
                         y='Beneficio',
                         color='Beneficio',
@@ -640,7 +640,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                         texttemplate='%{y:,.2f}€',
                         textposition='outside',
                         hovertemplate="Tienda: %{x}<br>Ventas: %{y:,.2f}€<br>Unidades: %{customdata:,}<extra></extra>",
-                        customdata=bottom_20_tiendas['Unidades Vendidas'],
+                        customdata=bottom_30_tiendas['Unidades Vendidas'],
                         opacity=0.8
                     )
                     st.plotly_chart(fig, use_container_width=True)
@@ -1689,10 +1689,10 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             datos_comparacion = pd.concat([ventas_por_tienda_temp, traspasos_por_tienda_temp], ignore_index=True)
             
             if not datos_comparacion.empty:
-                # Obtener top 20 tiendas por ventas totales
+                # Obtener top 30 tiendas por ventas totales
                 top_tiendas_ventas = df_ventas.groupby('Tienda')['Cantidad'].sum().nlargest(50).index.tolist()
                 
-                # Filtrar datos para top 20 tiendas
+                # Filtrar datos para top 30 tiendas
                 datos_top_tiendas = datos_comparacion[datos_comparacion['Tienda'].isin(top_tiendas_ventas)]
                 
                 if not datos_top_tiendas.empty:
@@ -1841,16 +1841,16 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
 
     elif seccion == "Geográfico y Tiendas":
         # Preparar datos
-        ventas_por_zona = df_ventas.groupby('Zona geográfica')['Cantidad'].sum().reset_index()
+        ventas_por_zona = df_ventas.groupby('Zona Geográfica')['Cantidad'].sum().reset_index()
         ventas_por_tienda = df_ventas.groupby('Tienda')['Cantidad'].sum().reset_index()
-        tiendas_por_zona = df_ventas[['Tienda', 'Zona geográfica']].drop_duplicates().groupby('Zona geográfica').count().reset_index()
+        tiendas_por_zona = df_ventas[['Tienda', 'Zona Geográfica']].drop_duplicates().groupby('Zona Geográfica').count().reset_index()
 
         # 1. KPIs: Mejor y peor tienda por zona
         viz_title("KPIs por Zona - Mejor y Peor Tienda")
         
         try:
             # Calcular ventas por tienda y zona
-            ventas_tienda_zona = df_ventas.groupby(['Zona geográfica', 'Tienda']).agg({
+            ventas_tienda_zona = df_ventas.groupby(['Zona Geográfica', 'Tienda']).agg({
                 'Cantidad': 'sum',
                 'Beneficio': 'sum'
             }).reset_index()
@@ -1859,15 +1859,15 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             ventas_tienda_zona['Cantidad'] = pd.to_numeric(ventas_tienda_zona['Cantidad'], errors='coerce').fillna(0)
             ventas_tienda_zona['Beneficio'] = pd.to_numeric(ventas_tienda_zona['Beneficio'], errors='coerce').fillna(0)
             
-            # Asegurar que Zona geográfica es string
-            ventas_tienda_zona['Zona geográfica'] = ventas_tienda_zona['Zona geográfica'].astype(str)
+            # Asegurar que Zona Geográfica es string
+            ventas_tienda_zona['Zona Geográfica'] = ventas_tienda_zona['Zona Geográfica'].astype(str)
             
             # Calcular media de ventas por zona
-            media_por_zona = ventas_tienda_zona.groupby('Zona geográfica')['Cantidad'].mean().reset_index()
+            media_por_zona = ventas_tienda_zona.groupby('Zona Geográfica')['Cantidad'].mean().reset_index()
             media_por_zona = media_por_zona.rename(columns={'Cantidad': 'Media_Zona'})
             
             # Unir con ventas por tienda
-            ventas_tienda_zona = ventas_tienda_zona.merge(media_por_zona, on='Zona geográfica')
+            ventas_tienda_zona = ventas_tienda_zona.merge(media_por_zona, on='Zona Geográfica')
             
             # Calcular porcentaje vs media con manejo de división por cero
             ventas_tienda_zona['%_vs_Media'] = 0.0  # Default value
@@ -1881,8 +1881,8 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             mejores_tiendas = []
             peores_tiendas = []
             
-            for zona in ventas_tienda_zona['Zona geográfica'].unique():
-                zona_data = ventas_tienda_zona[ventas_tienda_zona['Zona geográfica'] == zona].copy()
+            for zona in ventas_tienda_zona['Zona Geográfica'].unique():
+                zona_data = ventas_tienda_zona[ventas_tienda_zona['Zona Geográfica'] == zona].copy()
                 if not zona_data.empty and len(zona_data) > 0:
                     # Encontrar mejor tienda (máxima cantidad)
                     try:
@@ -1904,36 +1904,34 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             peores_tiendas = pd.DataFrame(peores_tiendas) if peores_tiendas else pd.DataFrame()
             
             # Mostrar KPIs en formato de tarjetas
-            zonas = sorted([str(z) for z in df_ventas['Zona geográfica'].unique() if pd.notna(z)])
+            zonas = sorted([str(z) for z in df_ventas['Zona Geográfica'].unique() if pd.notna(z)])
             
             for zona in zonas:
-                mejor = mejores_tiendas[mejores_tiendas['Zona geográfica'] == zona] if not mejores_tiendas.empty else pd.DataFrame()
-                peor = peores_tiendas[peores_tiendas['Zona geográfica'] == zona] if not peores_tiendas.empty else pd.DataFrame()
+                mejor = mejores_tiendas[mejores_tiendas['Zona Geográfica'] == zona] if not mejores_tiendas.empty else pd.DataFrame()
+                peor = peores_tiendas[peores_tiendas['Zona Geográfica'] == zona] if not peores_tiendas.empty else pd.DataFrame()
                 
                 if not mejor.empty and not peor.empty:
                     try:
-                        st.markdown(f"""
-                        <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; background-color: white;">
-                            <div style="color: #666666; font-size: 16px; font-weight: 600; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e5e7eb;">
-                                {zona}
-                            </div>
-                            <div style="display: flex; justify-content: space-between; gap: 15px;">
-                                <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                                    <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Mejor Tienda</p>
-                                    <p style="color: #111827; font-size: 18px; font-weight: bold; margin: 0;">{mejor.iloc[0]['Tienda']}</p>
-                                    <p style="color: #059669; font-size: 14px; margin: 5px 0 0 0;">{mejor.iloc[0]['Cantidad']:,.0f} uds</p>
-                                    <p style="color: #059669; font-size: 14px; margin: 0;">{mejor.iloc[0]['Beneficio']:,.2f}€</p>
-                                </div>
-                                <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                                    <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Peor Tienda</p>
-                                    <p style="color: #111827; font-size: 18px; font-weight: bold; margin: 0;">{peor.iloc[0]['Tienda']}</p>
-                                    <p style="color: #dc2626; font-size: 14px; margin: 5px 0 0 0;">{peor.iloc[0]['Cantidad']:,.0f} uds</p>
-                                    <p style="color: #dc2626; font-size: 14px; margin: 0;">{peor.iloc[0]['Beneficio']:,.2f}€</p>
-                                    <p style="color: #dc2626; font-size: 12px; margin: 5px 0 0 0;">{peor.iloc[0]['%_vs_Media']}% vs media</p>
-                                </div>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        # Usar componentes nativos de Streamlit en lugar de HTML
+                        st.subheader(zona)
+                        
+                        col_mejor, col_peor = st.columns(2)
+                        
+                        with col_mejor:
+                            st.metric(
+                                label="Mejor Tienda",
+                                value=mejor.iloc[0]['Tienda'],
+                                delta=f"{mejor.iloc[0]['Cantidad']:,.0f} uds • {mejor.iloc[0]['Beneficio']:,.2f}€"
+                            )
+                        
+                        with col_peor:
+                            st.metric(
+                                label="Peor Tienda", 
+                                value=peor.iloc[0]['Tienda'],
+                                delta=f"{peor.iloc[0]['Cantidad']:,.0f} uds • {peor.iloc[0]['Beneficio']:,.2f}€ • {peor.iloc[0]['%_vs_Media']}% vs media"
+                            )
+                        
+                        st.divider()
                     except Exception as e:
                         st.error(f"Error al mostrar KPIs para {zona}: {str(e)}")
                 else:
@@ -1944,7 +1942,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             st.info("Mostrando información básica de zonas...")
             
             # Fallback: mostrar información básica
-            zonas_basicas = df_ventas.groupby('Zona geográfica')['Cantidad'].sum().reset_index()
+            zonas_basicas = df_ventas.groupby('Zona Geográfica')['Cantidad'].sum().reset_index()
             st.dataframe(zonas_basicas, use_container_width=True)
 
         # 2. Row: Ventas por zona y Tiendas por zona
@@ -1953,7 +1951,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         with col1:
             viz_title("Ventas por Zona")
             fig = px.bar(ventas_por_zona, 
-                        x='Zona geográfica', 
+                        x='Zona Geográfica', 
                         y='Cantidad',
                         color='Cantidad',
                         color_continuous_scale=COLOR_GRADIENT,
@@ -1971,7 +1969,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         with col2:
             viz_title("Tiendas por Zona")
             fig = px.bar(tiendas_por_zona, 
-                        x='Zona geográfica', 
+                        x='Zona Geográfica', 
                         y='Tienda',
                         color='Tienda',
                         color_continuous_scale=COLOR_GRADIENT,
@@ -1988,11 +1986,11 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
 
         # 3. Row: Evolución mensual por zona
         viz_title("Evolución Mensual por Zona")
-        zona_mes_evol = df_ventas.groupby(['Mes', 'Zona geográfica'])['Cantidad'].sum().reset_index()
+        zona_mes_evol = df_ventas.groupby(['Mes', 'Zona Geográfica'])['Cantidad'].sum().reset_index()
         fig = px.line(zona_mes_evol, 
                      x='Mes', 
                      y='Cantidad',
-                     color='Zona geográfica',
+                     color='Zona Geográfica',
                      color_discrete_sequence=COLOR_GRADIENT)
         fig.update_layout(
             showlegend=True,
@@ -2036,7 +2034,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             }
             
             # Asignar ciudad basada en zona geográfica
-            df_espana['Ciudad'] = df_espana['Zona geográfica'].map(mapeo_zona_ciudad)
+            df_espana['Ciudad'] = df_espana['Zona Geográfica'].map(mapeo_zona_ciudad)
             
             # Para tiendas sin zona geográfica, intentar extraer del nombre
             df_espana['Ciudad'] = df_espana['Ciudad'].fillna(
@@ -2663,7 +2661,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                 # Preparar tabla con las columnas solicitadas
                 tabla_bajo_margen = productos_bajo_margen[[
                     'Código único', 'Familia', 'Temporada', 'Fecha venta', 
-                    'Precio_venta', coste_col, 'margen_'
+                    'Precio_venta', coste_col, 'margen_%'
                 ]].copy()
                 
                 # Formatear columnas
@@ -2917,7 +2915,7 @@ def preprocess_ventas_data(df_ventas):
     column_map = {
     "TPV": "Código Tienda",
     "NombreTPV": "Tienda",
-    "Zona geográfica": "Zona geográfica",
+    "Zona geográfica": "Zona Geográfica",
     "Fecha Documento": "Fecha venta",
     "Marca": "Código Marca",
     "Descripción Marca": "Marca",
@@ -3058,7 +3056,7 @@ def preprocess_traspasos_data(df_traspasos):
         "Fecha Documento": "Fecha enviado",
         "Nº. TPV Destino": "Nº. TPV Destino",
         "NombreTpvDestino": "Tienda",
-        "Zona geográfica": "Zona geográfica",
+        "Zona Geográfica": "Zona Geográfica",
         "Marca": "Marca",
         "Descripción Marca": "Descripción Marca",
         "Temporada": "Temporada",
