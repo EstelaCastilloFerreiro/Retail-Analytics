@@ -2890,7 +2890,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             df_desc = pd.read_excel(descripciones_path)
             # Ensure ACT is str and use first 13 chars for key
             df_ventas["ACT_key"] = df_ventas["Código único"].astype(str).str[:13]
-            df_desc["ACT_key"] = df_desc["ACT"].astype(str)
+            df_desc["ACT_key"] = df_desc["Código único"].astype(str)
             # Merge material and percentage
             df_ventas = pd.merge(df_ventas, df_desc[["ACT_key", "fashion_compo_material_1", "fashion_compo_percentage_1"]], on="ACT_key", how="left")
         else:
