@@ -1922,12 +1922,16 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                                     <div style='flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;'>
                                         <p style='color: #666666; font-size: 14px; margin: 0 0 5px 0;'>Mejor Tienda</p>
                                         <p style='color: #111827; font-size: 22px; font-weight: bold; margin: 0;'>{mejor.iloc[0]['Tienda']}</p>
-                                        <p style='color: #059669; font-size: 13px; margin: 0;'>{int(mejor.iloc[0]['Cantidad']):,} uds • {mejor.iloc[0]['Beneficio']:,.2f}€</p>
+                                        <p style='color: #059669; font-size: 13px; margin: 0;'>
+                                            {int(mejor.iloc[0]['Cantidad']):,} uds<br/>{mejor.iloc[0]['Beneficio']:,.2f}€
+                                        </p>
                                     </div>
                                     <div style='flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;'>
                                         <p style='color: #666666; font-size: 14px; margin: 0 0 5px 0;'>Peor Tienda</p>
                                         <p style='color: #111827; font-size: 22px; font-weight: bold; margin: 0;'>{peor.iloc[0]['Tienda']}</p>
-                                        <p style='color: #059669; font-size: 13px; margin: 0;'>{int(peor.iloc[0]['Cantidad']):,} uds • {peor.iloc[0]['Beneficio']:,.2f}€ • {peor.iloc[0]['%_vs_Media']}% vs media</p>
+                                        <p style='color: #059669; font-size: 13px; margin: 0;'>
+                                            {int(peor.iloc[0]['Cantidad']):,} uds<br/>{peor.iloc[0]['Beneficio']:,.2f}€<br/>{peor.iloc[0]['%_vs_Media']}% vs media
+                                        </p>
                                     </div>
                                 </div>
                             </div>
