@@ -2937,7 +2937,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         # Add filters for Familia, Material, % Intervalo
         familias = summary["Familia"].dropna().unique().tolist()
         materiales = summary["fashion_compo_material_1"].dropna().unique().tolist()
-        intervalos = summary["% Intervalo"].dropna().unique().tolist()
+        intervalos = summary["compo_pct_interval"].dropna().unique().tolist()
         familia_sel = st.selectbox("Filtrar por Familia", ["Todos"] + familias)
         material_sel = st.selectbox("Filtrar por Material", ["Todos"] + materiales)
         intervalo_sel = st.selectbox("Filtrar por % Intervalo", ["Todos"] + intervalos)
@@ -2947,7 +2947,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         if material_sel != "Todos":
             filtered = filtered[filtered["fashion_compo_material_1"] == material_sel]
         if intervalo_sel != "Todos":
-            filtered = filtered[filtered["% Intervalo"] == intervalo_sel]
+            filtered = filtered[filtered["compo_pct_interval"] == intervalo_sel]
 
         # Display filtered table
         st.dataframe(filtered.rename(columns={
