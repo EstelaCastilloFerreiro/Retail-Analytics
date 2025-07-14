@@ -1,1 +1,2 @@
-# Install Spanish Spacy model after requirements 
+# System dependencies for your app
+# (leave empty if you don't need any) 
