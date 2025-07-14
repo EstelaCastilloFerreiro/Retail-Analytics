@@ -2939,7 +2939,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
 
         # Add filters for Familia, Material, % Intervalo
         familias = summary["Familia"].dropna().unique().tolist()
-        materiales = summary["Material"].dropna().unique().tolist()
+        materiales = summary["fashion_compo_material_1"].dropna().unique().tolist()
         intervalos = summary["% Intervalo"].dropna().unique().tolist()
         familia_sel = st.selectbox("Filtrar por Familia", ["Todos"] + familias)
         material_sel = st.selectbox("Filtrar por Material", ["Todos"] + materiales)
