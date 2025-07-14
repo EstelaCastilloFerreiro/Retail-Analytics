@@ -2896,20 +2896,13 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         else:
             st.error("No se encontró el archivo de descripciones.")
             return
-        # Merge precio coste from df_productos
-        if "Código único" in df_productos.columns:
-            df_productos["ACT_key"] = df_productos["Código único"].astype(str)
-            df_ventas = pd.merge(df_ventas, df_productos[["ACT_key", "Precio Coste"]], on="ACT_key", how="left", suffixes=("", "_coste"))
-        else:
-            st.error("No se encontró la columna ACT en df_productos.")
-            return
         # Only analyze positive sales
         df_pos = df_ventas[df_ventas["Cantidad"] > 0].copy()
         # Calculate PVP (Precio_venta) per row
         df_pos["Precio_venta"] = df_pos["Beneficio"] / df_pos["Cantidad"]
         # Bin fashion_compo_percentage_1 into intervals (e.g., 0.80-0.85, 0.85-0.90, 0.90-0.95)
-        bins = [0, 0.8, 0.85, 0.9, 0.95, 1.0]
-        labels = ["0-0.8", "0.8-0.85", "0.85-0.9", "0.9-0.95", "0.95-1.0"]
+        bins = [0,60,65,70,75, 80, 85, 90, 95, 100]
+        labels = ["0-60","60-65","65-70","70-75","75-85", "80-85", "85-90", "90-0.95", "95-100"]
         df_pos["compo_pct_interval"] = pd.cut(df_pos["fashion_compo_percentage_1"], bins=bins, labels=labels, include_lowest=True)
 
         # DEBUG: Show merged table before summary
@@ -2937,6 +2930,19 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             "precio_coste": "Precio Coste",
             "max_precio_coste_recommended": "Max Precio Coste Recom."
         }), use_container_width=True)
+
+        # If values are between 0 and 1, convert to 0-100
+        if df_pos["fashion_compo_percentage_1"].max() <= 1.0:
+            df_pos["fashion_compo_percentage_1"] = df_pos["fashion_compo_percentage_1"] * 100
+
+        # Bin fashion_compo_percentage_1 into intervals
+        bins = [0,60,65,70,75, 80, 85, 90, 95, 100]
+        labels = ["0-60","60-65","65-70","70-75","75-80", "80-85", "85-90", "90-95", "95-100"]
+        df_pos["compo_pct_interval"] = pd.cut(df_pos["fashion_compo_percentage_1"], bins=bins, labels=labels, include_lowest=True)
+
+        # DEBUG: Show relevant columns after binning
+        st.write("### Material, porcentaje y intervalo después del binning:")
+        st.dataframe(df_pos[["fashion_compo_material_1", "fashion_compo_percentage_1", "compo_pct_interval"]].head(50), use_container_width=True)
 
 # Cached function for calculating store rankings
 @st.cache_data
