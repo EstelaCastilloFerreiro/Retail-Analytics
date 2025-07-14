@@ -2918,6 +2918,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         ).reset_index()
         # Calculate max precio coste recommended for margin >= 36%
         summary["max_precio_coste_recommended"] = summary["min_PVP_sold"] * (1 - 0.36)
+        summary = summary.dropna(subset=["max_PVP_sold", "units_at_max_price", "min_PVP_sold", "units_at_min_price", "precio_coste", "max_precio_coste_recommended"], how="all")
         # Display table
         st.dataframe(summary.rename(columns={
             "Familia": "Familia",
@@ -2931,19 +2932,11 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             "max_precio_coste_recommended": "Max Precio Coste Recom."
         }), use_container_width=True)
 
-        # If values are between 0 and 1, convert to 0-100
-        if df_pos["fashion_compo_percentage_1"].max() <= 1.0:
-            df_pos["fashion_compo_percentage_1"] = df_pos["fashion_compo_percentage_1"] * 100
+        
+        
 
-        # Bin fashion_compo_percentage_1 into intervals
-        bins = [0,60,65,70,75, 80, 85, 90, 95, 100]
-        labels = ["0-60","60-65","65-70","70-75","75-80", "80-85", "85-90", "90-95", "95-100"]
-        df_pos["compo_pct_interval"] = pd.cut(df_pos["fashion_compo_percentage_1"], bins=bins, labels=labels, include_lowest=True)
 
-        # DEBUG: Show relevant columns after binning
-        st.write("### Material, porcentaje y intervalo después del binning:")
-        st.dataframe(df_pos[["fashion_compo_material_1", "fashion_compo_percentage_1", "compo_pct_interval"]].head(50), use_container_width=True)
-
+        
 # Cached function for calculating store rankings
 @st.cache_data
 def calculate_store_rankings(df_ventas):
