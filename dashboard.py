@@ -2911,6 +2911,10 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         bins = [0, 0.8, 0.85, 0.9, 0.95, 1.0]
         labels = ["0-0.8", "0.8-0.85", "0.85-0.9", "0.9-0.95", "0.95-1.0"]
         df_pos["compo_pct_interval"] = pd.cut(df_pos["fashion_compo_percentage_1"], bins=bins, labels=labels, include_lowest=True)
+
+        # DEBUG: Show merged table before summary
+        st.write("### Tabla después del merge y antes del resumen:")
+        st.dataframe(df_pos.head(50), use_container_width=True)
         # Group and aggregate
         summary = df_pos.groupby(["Familia", "fashion_compo_material_1", "compo_pct_interval"]).agg(
             max_PVP_sold=("Precio_venta", "max"),
