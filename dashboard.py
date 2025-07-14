@@ -1913,24 +1913,28 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                 if not mejor.empty and not peor.empty:
                     try:
                         # Mostrar KPIs en formato de tarjeta HTML/CSS como Resumen General
-                         st.markdown(f"""
-                        <div class="kpi-group">
-                            <div class="kpi-group-title">{zona}</div>
-                            <div class="kpi-row">
-                                <div class="kpi-item">
-                                    <p class="small-font">Mejor Tienda</p>
-                                    <p class="metric-value">{mejor.iloc[0]['Tienda']}</p>
-                                    <p class="small-font">{mejor.iloc[0]['Cantidad']:,.0f} uds</p>
-                                    <p class="small-font" style="color:#059669;">{mejor.iloc[0]['Beneficio']:,.2f}€</p>
+                        st.markdown(f"""
+                            <div style='border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; background-color: white;'>
+                                <div style='color: #666666; font-size: 16px; font-weight: 600; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e5e7eb;'>
+                                    {zona}
                                 </div>
-                                <div class="kpi-item">
-                                    <p class="small-font">Peor Tienda</p>
-                                    <p class="metric-value">{peor.iloc[0]['Tienda']}</p>
-                                    <p class="small-font">{peor.iloc[0]['Cantidad']:,.0f} uds ({peor.iloc[0]['%_vs_Media']}% vs media)</p>
-                                    <p class="small-font" style="color:#dc2626;">{peor.iloc[0]['Beneficio']:,.2f}€</p>
+                                <div style='display: flex; justify-content: space-between; gap: 15px;'>
+                                    <div style='flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;'>
+                                        <p style='color: #666666; font-size: 14px; margin: 0 0 5px 0;'>Mejor Tienda</p>
+                                        <p style='color: #111827; font-size: 22px; font-weight: bold; margin: 0;'>{mejor.iloc[0]['Tienda']}</p>
+                                        <p style='color: #059669; font-size: 13px; margin: 0;'>
+                                            {int(mejor.iloc[0]['Cantidad']):,} uds<br/>{mejor.iloc[0]['Beneficio']:,.2f}€
+                                        </p>
+                                    </div>
+                                    <div style='flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;'>
+                                        <p style='color: #666666; font-size: 14px; margin: 0 0 5px 0;'>Peor Tienda</p>
+                                        <p style='color: #111827; font-size: 22px; font-weight: bold; margin: 0;'>{peor.iloc[0]['Tienda']}</p>
+                                        <p style='color: #059669; font-size: 13px; margin: 0;'>
+                                            {int(peor.iloc[0]['Cantidad']):,} uds<br/>{peor.iloc[0]['Beneficio']:,.2f}€<br/>{peor.iloc[0]['%_vs_Media']}% vs media
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
                         """, unsafe_allow_html=True)
                     except Exception as e:
                         st.error(f"Error al mostrar KPIs para {zona}: {str(e)}")
@@ -2947,51 +2951,44 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             'Unidades @ Max PVP': '{:,.0f}',
             'Unidades @ Min PVP': '{:,.0f}'
         }), use_container_width=True)
-
-        # --- Optimal PVP Calculation ---
-        import numpy as np
-        optimal_rows = []
-        for (familia, material, pct_interval), group_df in df_ventas_pvp.groupby(['Familia', 'fashion_compo_material_1', 'compo_pct_interval']):
-            if group_df['Precio_venta'].nunique() < 2:
-                continue  # Need at least two price points to fit a demand curve
-            # Aggregate by price
-            price_group = group_df.groupby('Precio_venta').agg({'Cantidad': 'sum', 'Precio Coste': 'mean'}).reset_index()
-            X = price_group['Precio_venta'].values
-            y = price_group['Cantidad'].values
-            if len(X) < 2:
-                continue
-            # Fit linear demand curve: y = a - b*X
-            coeffs = np.polyfit(X, y, 1)
-            a, b = coeffs
-            # Simulate profit for a range of prices
-            min_price, max_price = X.min(), X.max()
-            prices = np.linspace(min_price, max_price, 100)
-            units = a + b * prices  # b is negative if demand falls with price
-            units = np.maximum(units, 0)  # No negative sales
-            cost = price_group['Precio Coste'].mean()
-            profits = (prices - cost) * units
-            idx = np.argmax(profits)
-            optimal_pvp = prices[idx]
-            max_profit = profits[idx]
-            optimal_units = units[idx]
-            optimal_rows.append({
-                'Familia': familia,
-                'Material': material,
-                '% Intervalo': pct_interval,
-                'Optimal PVP': optimal_pvp,
-                'Expected Units': optimal_units,
-                'Expected Max Profit': max_profit
-            })
-        if optimal_rows:
-            optimal_df = pd.DataFrame(optimal_rows)
-            st.markdown("### PVP Óptimo por grupo (maximiza beneficio estimado)")
-            st.dataframe(optimal_df.style.format({
-                'Optimal PVP': '{:,.2f}€',
-                'Expected Units': '{:,.0f}',
-                'Expected Max Profit': '{:,.2f}€'
-            }), use_container_width=True)
-        else:
-            st.info("No hay suficientes datos de precios distintos para calcular el PVP óptimo en los grupos.")
+        # For each group, fit a linear demand curve and find optimal PVP
+        optimal_pvps = []
+        for _, row in result.iterrows():
+            # Filter group data
+            mask = (
+                (df_ventas_pvp['Familia'] == row['Familia']) &
+                (df_ventas_pvp['fashion_compo_material_1'] == row['Material']) &
+                (df_ventas_pvp['compo_pct_interval'] == row['% Intervalo'])
+            )
+            group_data = df_ventas_pvp[mask]
+            if group_data['Precio_venta'].nunique() > 1:
+                # Fit linear demand curve: Units = a - b*PVP
+                x = group_data['Precio_venta'].values
+                y = group_data['Cantidad'].values
+                coeffs = np.polyfit(x, y, 1)
+                a, b = coeffs
+                # Simulate profit for a range of prices
+                cost = row['Precio Coste'] if not np.isnan(row['Precio Coste']) else 0
+                pvp_range = np.linspace(x.min(), x.max(), 50)
+                units = a - b * pvp_range
+                units = np.maximum(units, 0)  # No negative sales
+                profits = (pvp_range - cost) * units
+                optimal_pvp = pvp_range[np.argmax(profits)]
+                optimal_pvps.append(optimal_pvp)
+            else:
+                # Not enough data to fit curve, use max PVP
+                optimal_pvps.append(row['Max PVP vendido'])
+        result['Optimal PVP'] = optimal_pvps
+        # Show table with new column
+        st.dataframe(result.style.format({
+            'Max PVP vendido': '{:,.2f}€',
+            'Min PVP vendido': '{:,.2f}€',
+            'Precio Coste': '{:,.2f}€',
+            'Max Precio Coste Recom.': '{:,.2f}€',
+            'Unidades @ Max PVP': '{:,.0f}',
+            'Unidades @ Min PVP': '{:,.0f}',
+            'Optimal PVP': '{:,.2f}€'
+        }), use_container_width=True)
 
 # Cached function for calculating store rankings
 @st.cache_data
