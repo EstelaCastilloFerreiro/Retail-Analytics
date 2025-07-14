@@ -2897,7 +2897,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             st.error("No se encontró el archivo de descripciones.")
             return
         # Merge precio coste from df_productos
-        if "ACT" in df_productos.columns:
+        if "Código único" in df_productos.columns:
             df_productos["ACT_key"] = df_productos["Código único"].astype(str)
             df_ventas = pd.merge(df_ventas, df_productos[["ACT_key", "precio coste"]], on="ACT_key", how="left", suffixes=("", "_coste"))
         else:
