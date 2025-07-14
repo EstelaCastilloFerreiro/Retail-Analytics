@@ -1914,27 +1914,23 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                     try:
                         # Mostrar KPIs en formato de tarjeta HTML/CSS como Resumen General
                         st.markdown(f"""
-                            <div style='border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; background-color: white;'>
-                                <div style='color: #666666; font-size: 16px; font-weight: 600; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e5e7eb;'>
-                                    {zona}
+                        <div class="kpi-group">
+                            <div class="kpi-group-title">{zona}</div>
+                            <div class="kpi-row">
+                                <div class="kpi-item">
+                                    <p class="small-font">Mejor Tienda</p>
+                                    <p class="metric-value">{mejor.iloc[0]['Tienda']}</p>
+                                    <p class="small-font">{mejor.iloc[0]['Cantidad']:,.0f} uds</p>
+                                    <p class="small-font" style="color:#059669;">{mejor.iloc[0]['Beneficio']:,.2f}€</p>
                                 </div>
-                                <div style='display: flex; justify-content: space-between; gap: 15px;'>
-                                    <div style='flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;'>
-                                        <p style='color: #666666; font-size: 14px; margin: 0 0 5px 0;'>Mejor Tienda</p>
-                                        <p style='color: #111827; font-size: 22px; font-weight: bold; margin: 0;'>{mejor.iloc[0]['Tienda']}</p>
-                                        <p style='color: #059669; font-size: 13px; margin: 0;'>
-                                            {int(mejor.iloc[0]['Cantidad']):,} uds<br/>{mejor.iloc[0]['Beneficio']:,.2f}€
-                                        </p>
-                                    </div>
-                                    <div style='flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;'>
-                                        <p style='color: #666666; font-size: 14px; margin: 0 0 5px 0;'>Peor Tienda</p>
-                                        <p style='color: #111827; font-size: 22px; font-weight: bold; margin: 0;'>{peor.iloc[0]['Tienda']}</p>
-                                        <p style='color: #059669; font-size: 13px; margin: 0;'>
-                                            {int(peor.iloc[0]['Cantidad']):,} uds<br/>{peor.iloc[0]['Beneficio']:,.2f}€<br/>{peor.iloc[0]['%_vs_Media']}% vs media
-                                        </p>
-                                    </div>
+                                <div class="kpi-item">
+                                    <p class="small-font">Peor Tienda</p>
+                                    <p class="metric-value">{peor.iloc[0]['Tienda']}</p>
+                                    <p class="small-font">{peor.iloc[0]['Cantidad']:,.0f} uds ({peor.iloc[0]['%_vs_Media']}% vs media)</p>
+                                    <p class="small-font" style="color:#dc2626;">{peor.iloc[0]['Beneficio']:,.2f}€</p>
                                 </div>
                             </div>
+                        </div>
                         """, unsafe_allow_html=True)
                     except Exception as e:
                         st.error(f"Error al mostrar KPIs para {zona}: {str(e)}")
@@ -2893,7 +2889,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         if os.path.exists(descripciones_path):
             df_desc = pd.read_excel(descripciones_path)
             # Ensure ACT is str and use first 13 chars for key
-            df_ventas["ACT_key"] = df_ventas["ACT"].astype(str).str[:13]
+            df_ventas["ACT_key"] = df_ventas["Código único"].astype(str).str[:13]
             df_desc["ACT_key"] = df_desc["ACT"].astype(str)
             # Merge material and percentage
             df_ventas = pd.merge(df_ventas, df_desc[["ACT_key", "fashion_compo_material_1", "fashion_compo_percentage_1"]], on="ACT_key", how="left")
@@ -2902,7 +2898,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             return
         # Merge precio coste from df_productos
         if "ACT" in df_productos.columns:
-            df_productos["ACT_key"] = df_productos["ACT"].astype(str)
+            df_productos["ACT_key"] = df_productos["Código único"].astype(str)
             df_ventas = pd.merge(df_ventas, df_productos[["ACT_key", "precio coste"]], on="ACT_key", how="left", suffixes=("", "_coste"))
         else:
             st.error("No se encontró la columna ACT en df_productos.")
