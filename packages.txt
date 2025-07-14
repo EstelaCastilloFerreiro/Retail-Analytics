@@ -1,2 +1,2 @@
-python3-dev
-build-essential 
+# Install Spanish Spacy model after requirements
+-e . 
