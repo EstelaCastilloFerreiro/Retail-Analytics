@@ -2887,107 +2887,55 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             st.warning("Por favor, sube uno o más archivos de descripciones (.xlsx) para ver el análisis de descripciones.")
 
     elif seccion == "Análisis PVP":
-        import pandas as pd
-        st.header("Análisis PVP")
-        # Load datos_descripciones.xlsx
-        try:
-            df_desc = pd.read_excel("data/datos_descripciones.xlsx")
-        except Exception as e:
-            st.error(f"No se pudo cargar datos_descripciones.xlsx: {e}")
+        st.markdown("## Análisis PVP")
+        # Load material/percentage data
+        descripciones_path = "data/datos_descripciones.xlsx"
+        if os.path.exists(descripciones_path):
+            df_desc = pd.read_excel(descripciones_path)
+            # Ensure ACT is str and use first 13 chars for key
+            df_ventas["ACT_key"] = df_ventas["ACT"].astype(str).str[:13]
+            df_desc["ACT_key"] = df_desc["ACT"].astype(str)
+            # Merge material and percentage
+            df_ventas = pd.merge(df_ventas, df_desc[["ACT_key", "fashion_compo_material_1", "fashion_compo_percentage_1"]], on="ACT_key", how="left")
+        else:
+            st.error("No se encontró el archivo de descripciones.")
             return
-        # Merge fashion_compo_material_1 and fashion_compo_percentage_1 into df_ventas using first 13 chars of 'Código único' as 'ACT'
-        df_ventas['ACT'] = df_ventas['Código único'].astype(str).str[:13]
-        df_desc['ACT'] = df_desc['Código único'].astype(str).str[:13]
-        df_ventas = df_ventas.merge(
-            df_desc[['ACT', 'fashion_compo_material_1', 'fashion_compo_percentage_1']],
-            on='ACT', how='left'
-        )
-        # Merge Precio Coste from df_productos using ACT
-        df_productos['ACT'] = df_productos['Código único'].astype(str).str[:13]
-        df_ventas = df_ventas.merge(
-            df_productos[['ACT', 'Precio Coste']],
-            on='ACT', how='left', suffixes=('', '_producto')
-        )
-        if 'Precio Coste_producto' in df_ventas.columns:
-            df_ventas['Precio Coste'] = df_ventas['Precio Coste_producto'].combine_first(df_ventas['Precio Coste'])
-            df_ventas = df_ventas.drop(columns=['Precio Coste_producto'])
-        # Only analyze rows with Cantidad > 0
-        df_ventas_pvp = df_ventas[df_ventas['Cantidad'] > 0].copy()
-        # Calculate Precio_venta (Subtotal/Cantidad)
-        df_ventas_pvp['Precio_venta'] = df_ventas_pvp['Subtotal'] / df_ventas_pvp['Cantidad']
-        # Bin fashion_compo_percentage_1 into intervals (e.g., 0.80-0.95)
-        bins = [0, 0.8, 0.95, 1.01]
-        labels = ['0-0.8', '0.8-0.95', '0.95-1.0']
-        df_ventas_pvp['compo_pct_interval'] = pd.cut(df_ventas_pvp['fashion_compo_percentage_1'], bins=bins, labels=labels, include_lowest=True)
+        # Merge precio coste from df_productos
+        if "ACT" in df_productos.columns:
+            df_productos["ACT_key"] = df_productos["ACT"].astype(str)
+            df_ventas = pd.merge(df_ventas, df_productos[["ACT_key", "precio coste"]], on="ACT_key", how="left", suffixes=("", "_coste"))
+        else:
+            st.error("No se encontró la columna ACT en df_productos.")
+            return
+        # Only analyze positive sales
+        df_pos = df_ventas[df_ventas["Cantidad"] > 0].copy()
+        # Calculate PVP (Precio_venta) per row
+        df_pos["Precio_venta"] = df_pos["Subtotal"] / df_pos["Cantidad"]
+        # Bin fashion_compo_percentage_1 into intervals (e.g., 0.80-0.85, 0.85-0.90, 0.90-0.95)
+        bins = [0, 0.8, 0.85, 0.9, 0.95, 1.0]
+        labels = ["0-0.8", "0.8-0.85", "0.85-0.9", "0.9-0.95", "0.95-1.0"]
+        df_pos["compo_pct_interval"] = pd.cut(df_pos["fashion_compo_percentage_1"], bins=bins, labels=labels, include_lowest=True)
         # Group and aggregate
-        grouped = df_ventas_pvp.groupby(['Familia', 'fashion_compo_material_1', 'compo_pct_interval'])
-        result = grouped.agg(
-            max_PVP=('Precio_venta', 'max'),
-            units_at_max_PVP=('Cantidad', lambda x: x[df_ventas_pvp.loc[x.index, 'Precio_venta'] == x.max()].sum()),
-            min_PVP=('Precio_venta', 'min'),
-            units_at_min_PVP=('Cantidad', lambda x: x[df_ventas_pvp.loc[x.index, 'Precio_venta'] == x.min()].sum()),
-            precio_coste=('Precio Coste', 'mean')
+        summary = df_pos.groupby(["Familia", "fashion_compo_material_1", "compo_pct_interval"]).agg(
+            max_PVP_sold=("Precio_venta", "max"),
+            units_at_max_price=("Precio_venta", lambda x: (x == x.max()).sum()),
+            min_PVP_sold=("Precio_venta", "min"),
+            units_at_min_price=("Precio_venta", lambda x: (x == x.min()).sum()),
+            precio_coste=("precio coste", "first")
         ).reset_index()
-        # Calculate max precio coste recomendado
-        result['max_precio_coste_recomendado'] = result['min_PVP'] * (1 - 0.36)
-        # Format columns
-        result = result.rename(columns={
-            'Familia': 'Familia',
-            'fashion_compo_material_1': 'Material',
-            'compo_pct_interval': '% Intervalo',
-            'max_PVP': 'Max PVP vendido',
-            'units_at_max_PVP': 'Unidades @ Max PVP',
-            'min_PVP': 'Min PVP vendido',
-            'units_at_min_PVP': 'Unidades @ Min PVP',
-            'precio_coste': 'Precio Coste',
-            'max_precio_coste_recomendado': 'Max Precio Coste Recom.'
-        })
-        # Show table
-        st.dataframe(result.style.format({
-            'Max PVP vendido': '{:,.2f}€',
-            'Min PVP vendido': '{:,.2f}€',
-            'Precio Coste': '{:,.2f}€',
-            'Max Precio Coste Recom.': '{:,.2f}€',
-            'Unidades @ Max PVP': '{:,.0f}',
-            'Unidades @ Min PVP': '{:,.0f}'
-        }), use_container_width=True)
-        # For each group, fit a linear demand curve and find optimal PVP
-        optimal_pvps = []
-        for _, row in result.iterrows():
-            # Filter group data
-            mask = (
-                (df_ventas_pvp['Familia'] == row['Familia']) &
-                (df_ventas_pvp['fashion_compo_material_1'] == row['Material']) &
-                (df_ventas_pvp['compo_pct_interval'] == row['% Intervalo'])
-            )
-            group_data = df_ventas_pvp[mask]
-            if group_data['Precio_venta'].nunique() > 1:
-                # Fit linear demand curve: Units = a - b*PVP
-                x = group_data['Precio_venta'].values
-                y = group_data['Cantidad'].values
-                coeffs = np.polyfit(x, y, 1)
-                a, b = coeffs
-                # Simulate profit for a range of prices
-                cost = row['Precio Coste'] if not np.isnan(row['Precio Coste']) else 0
-                pvp_range = np.linspace(x.min(), x.max(), 50)
-                units = a - b * pvp_range
-                units = np.maximum(units, 0)  # No negative sales
-                profits = (pvp_range - cost) * units
-                optimal_pvp = pvp_range[np.argmax(profits)]
-                optimal_pvps.append(optimal_pvp)
-            else:
-                # Not enough data to fit curve, use max PVP
-                optimal_pvps.append(row['Max PVP vendido'])
-        result['Optimal PVP'] = optimal_pvps
-        # Show table with new column
-        st.dataframe(result.style.format({
-            'Max PVP vendido': '{:,.2f}€',
-            'Min PVP vendido': '{:,.2f}€',
-            'Precio Coste': '{:,.2f}€',
-            'Max Precio Coste Recom.': '{:,.2f}€',
-            'Unidades @ Max PVP': '{:,.0f}',
-            'Unidades @ Min PVP': '{:,.0f}',
-            'Optimal PVP': '{:,.2f}€'
+        # Calculate max precio coste recommended for margin >= 36%
+        summary["max_precio_coste_recommended"] = summary["min_PVP_sold"] * (1 - 0.36)
+        # Display table
+        st.dataframe(summary.rename(columns={
+            "Familia": "Familia",
+            "fashion_compo_material_1": "Material",
+            "compo_pct_interval": "% Intervalo",
+            "max_PVP_sold": "Max PVP vendido",
+            "units_at_max_price": "Unidades al max PVP",
+            "min_PVP_sold": "Min PVP vendido",
+            "units_at_min_price": "Unidades al min PVP",
+            "precio_coste": "Precio Coste",
+            "max_precio_coste_recommended": "Max Precio Coste Recom."
         }), use_container_width=True)
 
 # Cached function for calculating store rankings
