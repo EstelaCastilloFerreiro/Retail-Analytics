@@ -233,7 +233,8 @@ else:
                     "Resumen General",
                     "Análisis de Descripciones",
                     "Geográfico y Tiendas",
-                    "Producto, Campaña, Devoluciones y Rentabilidad"
+                    "Producto, Campaña, Devoluciones y Rentabilidad",
+                    "Análisis PVP"
                 ])
                 st.sidebar.header("Filtros")
                 # --- Filtro de temporada ---
