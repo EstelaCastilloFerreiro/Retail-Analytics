@@ -437,7 +437,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                 st.markdown("""
                     <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; background-color: white;">
                         <div style="color: #666666; font-size: 16px; font-weight: 600; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e5e7eb;">
-                            KPIs de Rotación de Stock (Optimizados)
+                            KPIs de Rotación de Stock
                         </div>
                         <div style="display: flex; justify-content: space-between; gap: 15px; flex-wrap: wrap;">
                             <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white; min-width: 200px;">
@@ -1912,26 +1912,26 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                 
                 if not mejor.empty and not peor.empty:
                     try:
-                        # Usar componentes nativos de Streamlit en lugar de HTML
-                        st.subheader(zona)
-                        
-                        col_mejor, col_peor = st.columns(2)
-                        
-                        with col_mejor:
-                            st.metric(
-                                label="Mejor Tienda",
-                                value=mejor.iloc[0]['Tienda'],
-                                delta=f"{mejor.iloc[0]['Cantidad']:,.0f} uds • {mejor.iloc[0]['Beneficio']:,.2f}€"
-                            )
-                        
-                        with col_peor:
-                            st.metric(
-                                label="Peor Tienda", 
-                                value=peor.iloc[0]['Tienda'],
-                                delta=f"{peor.iloc[0]['Cantidad']:,.0f} uds • {peor.iloc[0]['Beneficio']:,.2f}€ • {peor.iloc[0]['%_vs_Media']}% vs media"
-                            )
-                        
-                        st.divider()
+                        # Mostrar KPIs en formato de tarjeta HTML/CSS como Resumen General
+                        st.markdown(f"""
+                            <div style='border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; background-color: white;'>
+                                <div style='color: #666666; font-size: 16px; font-weight: 600; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e5e7eb;'>
+                                    {zona}
+                                </div>
+                                <div style='display: flex; justify-content: space-between; gap: 15px;'>
+                                    <div style='flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;'>
+                                        <p style='color: #666666; font-size: 14px; margin: 0 0 5px 0;'>Mejor Tienda</p>
+                                        <p style='color: #111827; font-size: 22px; font-weight: bold; margin: 0;'>{mejor.iloc[0]['Tienda']}</p>
+                                        <p style='color: #059669; font-size: 13px; margin: 0;'>{int(mejor.iloc[0]['Cantidad']):,} uds • {mejor.iloc[0]['Beneficio']:,.2f}€</p>
+                                    </div>
+                                    <div style='flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;'>
+                                        <p style='color: #666666; font-size: 14px; margin: 0 0 5px 0;'>Peor Tienda</p>
+                                        <p style='color: #111827; font-size: 22px; font-weight: bold; margin: 0;'>{peor.iloc[0]['Tienda']}</p>
+                                        <p style='color: #059669; font-size: 13px; margin: 0;'>{int(peor.iloc[0]['Cantidad']):,} uds • {peor.iloc[0]['Beneficio']:,.2f}€ • {peor.iloc[0]['%_vs_Media']}% vs media</p>
+                                    </div>
+                                </div>
+                            </div>
+                        """, unsafe_allow_html=True)
                     except Exception as e:
                         st.error(f"Error al mostrar KPIs para {zona}: {str(e)}")
                 else:
