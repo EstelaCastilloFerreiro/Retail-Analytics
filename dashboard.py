@@ -2906,7 +2906,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         # Only analyze positive sales
         df_pos = df_ventas[df_ventas["Cantidad"] > 0].copy()
         # Calculate PVP (Precio_venta) per row
-        df_pos["Precio_venta"] = df_pos["Subtotal"] / df_pos["Cantidad"]
+        df_pos["Precio_venta"] = df_pos["Beneficio"] / df_pos["Cantidad"]
         # Bin fashion_compo_percentage_1 into intervals (e.g., 0.80-0.85, 0.85-0.90, 0.90-0.95)
         bins = [0, 0.8, 0.85, 0.9, 0.95, 1.0]
         labels = ["0-0.8", "0.8-0.85", "0.85-0.9", "0.9-0.95", "0.95-1.0"]
