@@ -2905,9 +2905,6 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         labels = ["0-60","60-65","65-70","70-75","75-85", "80-85", "85-90", "90-0.95", "95-100"]
         df_pos["compo_pct_interval"] = pd.cut(df_pos["fashion_compo_percentage_1"], bins=bins, labels=labels, include_lowest=True)
 
-        # DEBUG: Show merged table before summary
-        st.write("### Tabla después del merge y antes del resumen:")
-        st.dataframe(df_pos.head(50), use_container_width=True)
         # Group and aggregate
         summary = df_pos.groupby(["Familia", "fashion_compo_material_1", "compo_pct_interval"]).agg(
             max_PVP_sold=("Precio_venta", "max"),
@@ -2948,7 +2945,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         if familia_sel != "Todos":
             filtered = filtered[filtered["Familia"] == familia_sel]
         if material_sel != "Todos":
-            filtered = filtered[filtered["Material"] == material_sel]
+            filtered = filtered[filtered["fashion_compo_material_1"] == material_sel]
         if intervalo_sel != "Todos":
             filtered = filtered[filtered["% Intervalo"] == intervalo_sel]
 
