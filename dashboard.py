@@ -2917,7 +2917,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             units_at_max_price=("Precio_venta", lambda x: (x == x.max()).sum()),
             min_PVP_sold=("Precio_venta", "min"),
             units_at_min_price=("Precio_venta", lambda x: (x == x.min()).sum()),
-            precio_coste=("precio coste", "first")
+            precio_coste=("Precio Coste", "first")
         ).reset_index()
         # Calculate max precio coste recommended for margin >= 36%
         summary["max_precio_coste_recommended"] = summary["min_PVP_sold"] * (1 - 0.36)
