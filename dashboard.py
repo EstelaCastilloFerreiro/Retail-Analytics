@@ -2932,6 +2932,40 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             "max_precio_coste_recommended": "Max Precio Coste Recom."
         }), use_container_width=True)
 
+        # Add margin slider
+        target_margin = st.slider("Margen objetivo (%) para precio óptimo", min_value=10, max_value=80, value=36, step=1) / 100
+        # Calculate optimal price recommendation
+        summary["optimal_price_recommendation"] = summary["precio_coste"] / (1 - target_margin)
+
+        # Add filters for Familia, Material, % Intervalo
+        familias = summary["Familia"].dropna().unique().tolist()
+        materiales = summary["Material"].dropna().unique().tolist()
+        intervalos = summary["% Intervalo"].dropna().unique().tolist()
+        familia_sel = st.selectbox("Filtrar por Familia", ["Todos"] + familias)
+        material_sel = st.selectbox("Filtrar por Material", ["Todos"] + materiales)
+        intervalo_sel = st.selectbox("Filtrar por % Intervalo", ["Todos"] + intervalos)
+        filtered = summary.copy()
+        if familia_sel != "Todos":
+            filtered = filtered[filtered["Familia"] == familia_sel]
+        if material_sel != "Todos":
+            filtered = filtered[filtered["Material"] == material_sel]
+        if intervalo_sel != "Todos":
+            filtered = filtered[filtered["% Intervalo"] == intervalo_sel]
+
+        # Display filtered table
+        st.dataframe(filtered.rename(columns={
+            "Familia": "Familia",
+            "fashion_compo_material_1": "Material",
+            "compo_pct_interval": "% Intervalo",
+            "max_PVP_sold": "Max PVP vendido",
+            "units_at_max_price": "Unidades al max PVP",
+            "min_PVP_sold": "Min PVP vendido",
+            "units_at_min_price": "Unidades al min PVP",
+            "precio_coste": "Precio Coste",
+            "max_precio_coste_recommended": "Max Precio Coste Recom.",
+            "optimal_price_recommendation": "Precio Óptimo Recom."
+        }), use_container_width=True)
+
         
         
 
