@@ -232,8 +232,7 @@ else:
                 seccion = st.sidebar.selectbox("Área de Análisis", [
                     "Resumen General",
                     "Geográfico y Tiendas",
-                    "Producto, Campaña, Devoluciones y Rentabilidad",
-                    "Análisis PVP"
+                    "Producto, Campaña, Devoluciones y Rentabilidad"
                 ])
                 st.sidebar.header("Filtros")
                 # --- Filtro de temporada ---
