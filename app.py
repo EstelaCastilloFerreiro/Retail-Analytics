@@ -209,6 +209,13 @@ else:
         st.error(f"Error loading header logo: {e}")
 
     st.sidebar.title("Menú de Navegación")
+    
+    # Add session reset button
+    if st.sidebar.button("🔄 Resetear sesión"):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.experimental_rerun()
+    
     opcion = st.sidebar.radio("Selecciona una vista", ["Análisis", "Predicción"])
 
     if opcion == "Análisis":
