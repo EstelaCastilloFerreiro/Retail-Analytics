@@ -13,14 +13,6 @@ import numpy as np
 from catboost import Pool
 import io
 
-# Optional spacy import for description analysis
-try:
-    import spacy
-    nlp = spacy.load("es_core_news_sm")
-    SPACY_AVAILABLE = True
-except (OSError, ImportError):
-    SPACY_AVAILABLE = False
-
 
 # Configuración estilo gráfico general (sin líneas de fondo)
 plt.rcParams.update({
