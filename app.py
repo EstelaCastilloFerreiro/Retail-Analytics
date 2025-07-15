@@ -231,7 +231,6 @@ else:
 
                 seccion = st.sidebar.selectbox("Área de Análisis", [
                     "Resumen General",
-                    "Análisis de Descripciones",
                     "Geográfico y Tiendas",
                     "Producto, Campaña, Devoluciones y Rentabilidad",
                     "Análisis PVP"
@@ -263,34 +262,4 @@ else:
         else:
             st.info("Sube el archivo Excel para comenzar el análisis.")
     
-    elif opcion == "Predicción":
-        # Import prediction functions
-        from dashboard import show_prediction_interface
-        
-        # Show prediction interface without requiring file upload
-        st.markdown("## 🔮 **Predicciones de Ventas**")
-        st.markdown("Utiliza los modelos entrenados para predecir ventas futuras")
-        
-        # Check if training data exists
-        training_data_path = 'data/datos_modelo_catboost.xlsx'
-        if os.path.exists(training_data_path):
-            try:
-                # Load training data for predictions
-                df_training = pd.read_excel(training_data_path)
-                df_training['Fecha Documento'] = pd.to_datetime(df_training['Fecha Documento'], format='%d/%m/%Y', errors='coerce', dayfirst=True)
-                
-                # Show prediction interface
-                show_prediction_interface(df_training)
-                
-            except Exception as e:
-                st.error(f"Error al cargar los datos de entrenamiento: {e}")
-                st.info("Asegúrate de que el archivo 'data/datos_modelo_catboost.xlsx' existe y es válido.")
-        else:
-            st.error("No se encontró el archivo de datos de entrenamiento.")
-            st.info("""
-            Para usar las predicciones, necesitas:
-            1. El archivo 'data/datos_modelo_catboost.xlsx' con los datos de entrenamiento
-            2. Los modelos entrenados en la carpeta 'modelos_mejorados/' o 'modelos_finales/'
-            
-            Ejecuta `python run_model_improved.py` para entrenar los modelos mejorados.
-            """)
+   
