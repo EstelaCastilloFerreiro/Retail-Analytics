@@ -2222,9 +2222,18 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
 
         # Calcular descuento real basado en la diferencia entre PVP y precio real de venta
         if all(col in df_ventas.columns for col in ['PVP', 'Beneficio', 'Cantidad']):
-            df_ventas['Precio Real Unitario'] = df_ventas['Beneficio'] / df_ventas['Cantidad']
-            df_ventas['Descuento Real %'] = ((df_ventas['PVP'] - df_ventas['Precio Real Unitario']) / df_ventas['PVP'] * 100).fillna(0)
-            df_ventas['Descuento Real %'] = df_ventas['Descuento Real %'].clip(0, 100)  # Limitar entre 0 y 100%
+            # Solo para ventas positivas (no devoluciones)
+            df_ventas_positivas = df_ventas[df_ventas['Cantidad'] > 0].copy()
+            if not df_ventas_positivas.empty:
+                df_ventas_positivas['Precio Real Unitario'] = df_ventas_positivas['Beneficio'] / df_ventas_positivas['Cantidad']
+                # Evitar división por cero
+                df_ventas_positivas['Descuento Real %'] = 0
+                mask = (df_ventas_positivas['PVP'] != 0) & (df_ventas_positivas['Precio Real Unitario'].notna())
+                df_ventas_positivas.loc[mask, 'Descuento Real %'] = (
+                    (df_ventas_positivas.loc[mask, 'PVP'] - df_ventas_positivas.loc[mask, 'Precio Real Unitario']) / 
+                    df_ventas_positivas.loc[mask, 'PVP'] * 100
+                )
+                df_ventas_positivas['Descuento Real %'] = df_ventas_positivas['Descuento Real %'].clip(0, 100)
 
         # ===== KPIs =====
         st.markdown("### 📊 **KPIs de Devoluciones, Rebajas y Margen**")
@@ -2244,6 +2253,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             ratio_devolucion['Cantidad_y'] = ratio_devolucion['Cantidad_y'].fillna(0)
             ratio_devolucion['Ratio Devolución %'] = (ratio_devolucion['Cantidad_y'] / ratio_devolucion['Cantidad_x'] * 100).round(2)
             
+            # Encontrar la tienda con más devoluciones (no solo por ratio)
             top_tienda_devolucion = ratio_devolucion.loc[ratio_devolucion['Cantidad_y'].idxmax()]
             tienda_mas_devoluciones = top_tienda_devolucion['Tienda']
             ratio_devolucion_valor = top_tienda_devolucion['Ratio Devolución %']
@@ -2280,18 +2290,17 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             df_ventas_temp = df_ventas.copy()
             df_ventas_temp['Fecha venta'] = pd.to_datetime(df_ventas_temp['Fecha venta'], errors='coerce')
             df_ventas_temp['mes'] = df_ventas_temp['Fecha venta'].dt.month
-            df_ventas_temp = df_ventas_temp[df_ventas_temp['Beneficio'] > 0]
+            # Solo ventas positivas (no devoluciones)
+            df_ventas_temp = df_ventas_temp[df_ventas_temp['Cantidad'] > 0]
             rebajas_1 = df_ventas_temp[df_ventas_temp['mes'].isin([1, 6])]
             
-            if 'precio_pvp' in rebajas_1.columns:
-                rebajas_1['Precio_venta'] = rebajas_1['Beneficio'] / rebajas_1['Cantidad']
-                rebajas_1_real = rebajas_1[rebajas_1['Precio_venta'] < rebajas_1['precio_pvp']]
-                ventas_rebajas_1 = rebajas_1_real['Beneficio'].sum()
-            else:
+            if not rebajas_1.empty:
                 ventas_rebajas_1 = rebajas_1['Beneficio'].sum()
-            
-            if df_ventas_temp['Beneficio'].sum() > 0:
-                porcentaje_rebajas_1 = (ventas_rebajas_1 / df_ventas_temp['Beneficio'].sum() * 100)
+                
+                # Calcular porcentaje sobre el total de ventas (no solo beneficio)
+                total_ventas_periodo = df_ventas_temp['Beneficio'].sum()
+                if total_ventas_periodo > 0:
+                    porcentaje_rebajas_1 = (ventas_rebajas_1 / total_ventas_periodo * 100)
         
         # Rebajas 2ª (Febrero y Julio)
         ventas_rebajas_2 = 0
@@ -2300,28 +2309,38 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             df_ventas_temp = df_ventas.copy()
             df_ventas_temp['Fecha venta'] = pd.to_datetime(df_ventas_temp['Fecha venta'], errors='coerce')
             df_ventas_temp['mes'] = df_ventas_temp['Fecha venta'].dt.month
-            df_ventas_temp = df_ventas_temp[df_ventas_temp['Beneficio'] > 0]
+            # Solo ventas positivas (no devoluciones)
+            df_ventas_temp = df_ventas_temp[df_ventas_temp['Cantidad'] > 0]
             rebajas_2 = df_ventas_temp[df_ventas_temp['mes'].isin([2, 7])]
             
-            if 'precio_pvp' in rebajas_2.columns:
-                rebajas_2['Precio_venta'] = rebajas_2['Beneficio'] / rebajas_2['Cantidad']
-                rebajas_2_real = rebajas_2[rebajas_2['Precio_venta'] < rebajas_2['precio_pvp']]
-                ventas_rebajas_2 = rebajas_2_real['Beneficio'].sum()
-            else:
+            if not rebajas_2.empty:
                 ventas_rebajas_2 = rebajas_2['Beneficio'].sum()
-            
-            if df_ventas_temp['Beneficio'].sum() > 0:
-                porcentaje_rebajas_2 = (ventas_rebajas_2 / df_ventas_temp['Beneficio'].sum() * 100)
+                
+                # Calcular porcentaje sobre el total de ventas (no solo beneficio)
+                total_ventas_periodo = df_ventas_temp['Beneficio'].sum()
+                if total_ventas_periodo > 0:
+                    porcentaje_rebajas_2 = (ventas_rebajas_2 / total_ventas_periodo * 100)
         
         # Margen bruto por unidad (promedio)
-        
         margen_unitario_promedio = 0
         margen_unitario_promedio_positivo = 0
         if all(col in df_ventas.columns for col in ['PVP', 'Precio Coste']):
             df_ventas_temp = df_ventas.copy()
             df_ventas_temp['margen_unitario'] = df_ventas_temp['PVP'] - df_ventas_temp['Precio Coste']
-            margen_unitario_promedio = df_ventas_temp['margen_unitario'].mean()
-            margen_unitario_promedio_positivo = df_ventas_temp[df_ventas_temp['margen_unitario'] > 0]['margen_unitario'].mean()
+            
+            # Calcular promedios correctamente
+            if not df_ventas_temp.empty:
+                margen_unitario_promedio = df_ventas_temp['margen_unitario'].mean()
+                
+                # Solo productos con margen positivo para el promedio positivo
+                df_ventas_temp_positivos = df_ventas_temp[df_ventas_temp['margen_unitario'] > 0]
+                if not df_ventas_temp_positivos.empty:
+                    margen_unitario_promedio_positivo = df_ventas_temp_positivos['margen_unitario'].mean()
+                else:
+                    margen_unitario_promedio_positivo = 0
+            else:
+                margen_unitario_promedio = 0
+                margen_unitario_promedio_positivo = 0
         
         # Margen porcentual (promedio)
         margen_porcentual_promedio = 0
@@ -2329,11 +2348,27 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         if all(col in df_ventas.columns for col in ['PVP', 'Precio Coste']):
             df_ventas_temp = df_ventas.copy()
             df_ventas_temp['margen_unitario'] = df_ventas_temp['PVP'] - df_ventas_temp['Precio Coste']
-            df_ventas_temp['margen_%'] = df_ventas_temp['margen_unitario'] / df_ventas_temp['PVP']
+            
+            # Calcular margen porcentual correctamente
+            # Margen % = (PVP - Precio Coste) / PVP * 100
+            df_ventas_temp['margen_%'] = (df_ventas_temp['margen_unitario'] / df_ventas_temp['PVP']) * 100
+            
             # Ignorar productos con PVP = 0 para el promedio real
             df_ventas_temp_validos = df_ventas_temp[df_ventas_temp['PVP'] != 0]
-            margen_porcentual_promedio = df_ventas_temp_validos['margen_%'].mean() * 100
-            margen_porcentual_promedio_positivo = df_ventas_temp_validos[df_ventas_temp_validos['margen_%'] > 0]['margen_%'].mean() * 100
+            
+            # Calcular promedios correctamente
+            if not df_ventas_temp_validos.empty:
+                margen_porcentual_promedio = df_ventas_temp_validos['margen_%'].mean()
+                
+                # Solo productos con margen positivo para el promedio positivo
+                df_ventas_temp_positivos = df_ventas_temp_validos[df_ventas_temp_validos['margen_%'] > 0]
+                if not df_ventas_temp_positivos.empty:
+                    margen_porcentual_promedio_positivo = df_ventas_temp_positivos['margen_%'].mean()
+                else:
+                    margen_porcentual_promedio_positivo = 0
+            else:
+                margen_porcentual_promedio = 0
+                margen_porcentual_promedio_positivo = 0
         
         # KPIs in HTML style like Resumen General
         st.markdown("""
@@ -2463,55 +2498,67 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         else:
             st.info("No hay datos de devoluciones disponibles para mostrar la comparación.")
 
-        # Row 2: Talla más devuelta y menos devuelta por familia
+        # Row 2: Análisis de tallas por familia con tablas
         st.markdown("#### **Análisis de Tallas por Familia**")
         
         if not devoluciones.empty and 'Talla' in devoluciones.columns:
-            col_talla1, col_talla2 = st.columns(2)
+            # Obtener datos de tallas por familia
+            tallas_por_familia = devoluciones.groupby(['Familia', 'Talla'])['Cantidad'].sum().abs().reset_index()
             
-            with col_talla1:
-                # Talla más devuelta por familia
-                talla_mas_devuelta_familia = devoluciones.groupby(['Familia', 'Talla'])['Cantidad'].sum().abs().reset_index()
-                talla_mas_devuelta_familia = talla_mas_devuelta_familia.loc[talla_mas_devuelta_familia.groupby('Familia')['Cantidad'].idxmax()]
-                
-                fig = px.bar(
-                    talla_mas_devuelta_familia,
-                    x='Familia',
-                    y='Cantidad',
-                    color='Talla',
-                    title="Talla más devuelta por Familia",
-                    color_discrete_sequence=px.colors.sequential.Reds
-                )
-                fig.update_layout(
-                    xaxis_tickangle=45,
-                    height=400,
-                    margin=dict(t=30, b=0, l=0, r=0),
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)"
-                )
-                st.plotly_chart(fig, use_container_width=True)
+            # Crear tablas para cada familia
+            familias_unicas = tallas_por_familia['Familia'].unique()
             
-            with col_talla2:
-                # Talla menos devuelta por familia
-                talla_menos_devuelta_familia = devoluciones.groupby(['Familia', 'Talla'])['Cantidad'].sum().abs().reset_index()
-                talla_menos_devuelta_familia = talla_menos_devuelta_familia.loc[talla_menos_devuelta_familia.groupby('Familia')['Cantidad'].idxmin()]
+            for familia in familias_unicas:
+                st.markdown(f"**📊 Familia: {familia}**")
                 
-                fig = px.bar(
-                    talla_menos_devuelta_familia,
-                    x='Familia',
-                    y='Cantidad',
-                    color='Talla',
-                    title="Talla menos devuelta por Familia",
-                    color_discrete_sequence=px.colors.sequential.Reds
-                )
-                fig.update_layout(
-                    xaxis_tickangle=45,
-                    height=400,
-                    margin=dict(t=30, b=0, l=0, r=0),
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)"
-                )
-                st.plotly_chart(fig, use_container_width=True)
+                # Filtrar datos para esta familia
+                datos_familia = tallas_por_familia[tallas_por_familia['Familia'] == familia].copy()
+                datos_familia = datos_familia.sort_values('Cantidad', ascending=False)
+                
+                # Obtener top 3 más devueltas y top 3 menos devueltas
+                top_3_mas_devueltas = datos_familia.head(3)
+                top_3_menos_devueltas = datos_familia.tail(3)
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("**🔴 Top 3 Tallas Más Devueltas**")
+                    if not top_3_mas_devueltas.empty:
+                        # Crear tabla con estilo
+                        tabla_mas_devueltas = top_3_mas_devueltas[['Talla', 'Cantidad']].copy()
+                        tabla_mas_devueltas.columns = ['Talla', 'Cantidad Devuelta']
+                        tabla_mas_devueltas['Ranking'] = range(1, len(tabla_mas_devueltas) + 1)
+                        tabla_mas_devueltas = tabla_mas_devueltas[['Ranking', 'Talla', 'Cantidad Devuelta']]
+                        
+                        # Aplicar estilos a la tabla
+                        st.dataframe(
+                            tabla_mas_devueltas,
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                    else:
+                        st.info("No hay datos suficientes para mostrar las tallas más devueltas.")
+                
+                with col2:
+                    st.markdown("**🟢 Top 3 Tallas Menos Devueltas**")
+                    if not top_3_menos_devueltas.empty:
+                        # Crear tabla con estilo
+                        tabla_menos_devueltas = top_3_menos_devueltas[['Talla', 'Cantidad']].copy()
+                        tabla_menos_devueltas.columns = ['Talla', 'Cantidad Devuelta']
+                        tabla_menos_devueltas['Ranking'] = range(1, len(tabla_menos_devueltas) + 1)
+                        tabla_menos_devueltas = tabla_menos_devueltas[['Ranking', 'Talla', 'Cantidad Devuelta']]
+                        
+                        # Aplicar estilos a la tabla
+                        st.dataframe(
+                            tabla_menos_devueltas,
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                    else:
+                        st.info("No hay datos suficientes para mostrar las tallas menos devueltas.")
+                
+                # Separador entre familias
+                st.markdown("---")
         else:
             st.info("No hay datos de tallas en las devoluciones disponibles.")
 
