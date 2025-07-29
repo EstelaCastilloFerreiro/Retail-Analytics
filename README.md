@@ -1,4 +1,4 @@
-# Trucco Analytics
+# Retail-Analytics
 
 Script con preprocesamiento de descripciones
 
