@@ -1,10 +1,8 @@
-# Trucco_clean
+# Trucco Analytics
 
-Script de Trucco limpio y con preprocesamiento de descripciones
+Script con preprocesamiento de descripciones
 
-## About
 
-Script de Trucco limpio y con preprocesamiento de descripciones
 
 ## Running the App
 
