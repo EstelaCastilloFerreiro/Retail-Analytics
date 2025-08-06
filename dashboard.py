@@ -233,7 +233,15 @@ def aplicar_filtros(df_ventas, df_traspasos):
     # Aplicar filtro de tienda a traspasos si se proporciona
     if df_traspasos is not None:
         df_traspasos_filtrado = df_traspasos.copy()
-        df_traspasos_filtrado['Fecha enviado'] = pd.to_datetime(df_traspasos_filtrado['Fecha enviado'], format='%d/%m/%Y', errors='coerce')
+        # Usar el mismo procesamiento flexible de fechas que en preprocess_traspasos_data
+        try:
+            df_traspasos_filtrado['Fecha enviado'] = pd.to_datetime(df_traspasos_filtrado['Fecha enviado'], format='%d/%m/%Y', errors='coerce')
+        except:
+            try:
+                df_traspasos_filtrado['Fecha enviado'] = pd.to_datetime(df_traspasos_filtrado['Fecha enviado'], dayfirst=True, errors='coerce')
+            except:
+                df_traspasos_filtrado['Fecha enviado'] = pd.to_datetime(df_traspasos_filtrado['Fecha enviado'], errors='coerce')
+        
         # Asegurar que la columna Tienda existe en traspasos
         if 'Tienda' in df_traspasos_filtrado.columns:
             df_traspasos_filtrado = df_traspasos_filtrado[df_traspasos_filtrado['Tienda'].isin(tienda_seleccionada)]
@@ -858,11 +866,14 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             familia_actual = df_ventas['Familia'].mode().iloc[0] if not df_ventas.empty else 'Sin Familia'
             df_almacen_fam = df_productos_temp[df_productos_temp['Familia'] == familia_actual].copy()
             
+            # Si no hay datos para la familia actual, usar todos los datos de productos
+            if df_almacen_fam.empty:
+                df_almacen_fam = df_productos_temp.copy()
             
-            # Filtrar por la familia actual
-            df_almacen_fam = df_productos_temp[
-                df_productos_temp['Familia'] == familia_actual
-            ].copy()
+            # Filtrar productos sin tema definido
+            df_almacen_fam = df_almacen_fam[df_almacen_fam['Tema_temporada'] != 'Sin Tema']
+            
+
             
            
             
@@ -917,18 +928,27 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                 
                 if not datos_tabla.empty:
                 
-                    # Obtener todos los temas únicos de df_productos (no solo los vendidos)
-                    temas_productos = sorted(df_almacen_fam['Tema_temporada'].unique())
+                    # Obtener todos los temas únicos de df_productos (excluyendo "Sin Tema")
+                    temas_productos = sorted(df_almacen_fam[df_almacen_fam['Tema_temporada'] != 'Sin Tema']['Tema_temporada'].unique())
                     
-                    # Calcular temas y num_temas SIEMPRE
+                    # Calcular temas y num_temas (excluyendo "Sin Tema")
                     temas = temas_productos
                     num_temas = len(temas)
                     
 
-                    if num_temas > 0:
+                    if num_temas > 0 and any(tema not in ['Sin Tema', 'nan', 'None'] for tema in temas):
                         # --- Sección: Entradas almacén y traspasos ---
                         st.markdown('<hr style="margin: 1em 0; border-top: 2px solid #bbb;">', unsafe_allow_html=True)
-                        st.markdown('<h4 style="color:#333;font-weight:bold;">Entradas almacén y traspasos</h4>', unsafe_allow_html=True)
+                        st.markdown('<h4 style="color:#333;font-weight:bold;text-align:center;">Entradas almacén y traspasos</h4>', unsafe_allow_html=True)
+                        # Añadir estilo CSS para centrar todas las tablas en esta sección
+                        st.markdown("""
+                        <style>
+                        .stDataFrame {
+                            margin: 0 auto !important;
+                            text-align: center !important;
+                        }
+                        </style>
+                        """, unsafe_allow_html=True)
                         
                         # Si se han seleccionado tiendas específicas, mostrar tabla de análisis temporal
                         
@@ -937,7 +957,14 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                             # Preparar datos para el análisis temporal
                             df_almacen_fam_timeline = df_almacen_fam.copy()
                             df_traspasos_timeline = df_traspasos_filtrado.copy()
-                            df_traspasos_timeline['Fecha enviado'] = pd.to_datetime(df_traspasos_timeline['Fecha enviado'], errors='coerce')
+                            # Usar procesamiento flexible de fechas
+                            try:
+                                df_traspasos_timeline['Fecha enviado'] = pd.to_datetime(df_traspasos_timeline['Fecha enviado'], format='%d/%m/%Y', errors='coerce')
+                            except:
+                                try:
+                                    df_traspasos_timeline['Fecha enviado'] = pd.to_datetime(df_traspasos_timeline['Fecha enviado'], dayfirst=True, errors='coerce')
+                                except:
+                                    df_traspasos_timeline['Fecha enviado'] = pd.to_datetime(df_traspasos_timeline['Fecha enviado'], errors='coerce')
                             df_ventas_timeline = df_ventas.copy()
                             df_ventas_timeline['Fecha venta'] = pd.to_datetime(df_ventas_timeline['Fecha venta'], errors='coerce')
 
@@ -1021,7 +1048,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                         else:
                             if num_temas == 1:
                                 # Un tema: centrado
-                                col5a, col5b, col5c = st.columns([1, 2, 1])
+                                col5a, col5b, col5c = st.columns([1, 3, 1])
                                 with col5b:
                                     tema = temas[0]
                                     st.subheader(f"Entrada Almacén - {tema}")
@@ -1144,17 +1171,22 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                                         ).round(0)
                                         tallas_orden = sorted(tabla_pivot.columns, key=custom_sort_key)
                                         tabla_pivot = tabla_pivot[tallas_orden]
-                                        st.dataframe(
-                                            tabla_pivot.style.format("{:,.0f}"),
-                                            use_container_width=True,
-                                            hide_index=False
-                                        )
+                                        # Contenedor centrado para la tabla
+                                        with st.container():
+                                            st.markdown('<div style="text-align:center;">', unsafe_allow_html=True)
+                                            st.dataframe(
+                                                tabla_pivot.style.format("{:,.0f}"),
+                                                use_container_width=True,
+                                                hide_index=False
+                                            )
+                                            st.markdown('</div>', unsafe_allow_html=True)
                                         total_temp = tabla_pivot.sum().sum()
                                         st.write(f"**Total Entrada Almacén:** {total_temp:,.0f}")
                                     else:
                                         st.info(f"No hay datos para el tema {tema}")
                             elif num_temas == 2:
-                                col5, col6 = st.columns(2)
+                                # Dos temas: centrados con espaciado
+                                col5a, col5, col6, col6a = st.columns([1, 2, 2, 1])
                                 for i, tema in enumerate(temas):
                                     with locals()[f'col{5+i}']:
                                         st.subheader(f"Entrada Almacén - {tema}")
@@ -1275,7 +1307,8 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                                         else:
                                             st.info(f"No hay datos para el tema {tema}")
                             else:
-                                col5, col6 = st.columns(2)
+                                # Múltiples temas: centrados con espaciado
+                                col5a, col5, col6, col6a = st.columns([1, 2, 2, 1])
                                 mitad = (num_temas + 1) // 2
                                 temas_col5 = temas[:mitad]
                                 temas_col6 = temas[mitad:]
@@ -1627,9 +1660,14 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                         total_pedida = tabla_pedida_pivot.sum().sum()
                         st.write(f"**Total Cantidad Pedida:** {total_pedida:,.0f}")
                     else:
-                        st.info("No hay datos de cantidad pedida para la familia seleccionada.")
+                        st.info("No hay datos de cantidad pedida disponibles para el período seleccionado.")
                 else:
-                    st.info("No hay datos de cantidad pedida disponibles para la familia seleccionada.")
+                    if df_almacen_fam.empty:
+                        st.info("No hay datos de productos disponibles.")
+                    elif 'Cantidad pedida' not in df_almacen_fam.columns:
+                        st.info("No se encontró la columna 'Cantidad pedida' en los datos de productos.")
+                    else:
+                        st.info("No hay datos de cantidad pedida disponibles para la familia seleccionada.")
 
             # --- Ventas vs Traspasos por Tienda ---
             st.markdown("---")
@@ -1783,10 +1821,16 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                     # Calcular totales por tienda
                     resumen_totales = datos_top_tiendas.groupby(['Tienda', 'Tipo'])['Cantidad Total'].sum().reset_index()
                     resumen_pivot_totales = resumen_totales.pivot(index='Tienda', columns='Tipo', values='Cantidad Total').fillna(0)
-                    resumen_pivot_totales['Diferencia'] = resumen_pivot_totales['Ventas'] - resumen_pivot_totales['Traspasos']
                     
-                    
-                    resumen_pivot_totales['Eficiencia %'] = (resumen_pivot_totales['Ventas'] / resumen_pivot_totales['Traspasos'] * 100).fillna(0)
+                    # Verificar si existe la columna 'Traspasos' en el pivot table
+                    if 'Traspasos' in resumen_pivot_totales.columns:
+                        resumen_pivot_totales['Diferencia'] = resumen_pivot_totales['Ventas'] - resumen_pivot_totales['Traspasos']
+                        resumen_pivot_totales['Eficiencia %'] = (resumen_pivot_totales['Ventas'] / resumen_pivot_totales['Traspasos'] * 100).fillna(0)
+                    else:
+                        # Si no hay columna 'Traspasos', usar valores por defecto
+                        resumen_pivot_totales['Traspasos'] = 0
+                        resumen_pivot_totales['Diferencia'] = resumen_pivot_totales['Ventas']
+                        resumen_pivot_totales['Eficiencia %'] = 0
 
                     # Calcular Devoluciones (cantidad negativa) por tienda
                     devoluciones_por_tienda = df_ventas[df_ventas['Cantidad'] < 0].groupby('Tienda')['Cantidad'].sum().abs()
@@ -1813,13 +1857,26 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                     
                     # Mostrar tabla detallada por temporada
                     st.write("**Detalle por Temporada:**")
-                    st.dataframe(
-                        resumen_pivot_temp.style.format({
-                            'Ventas': '{:,.0f}',
-                            'Traspasos': '{:,.0f}'
-                        }),
-                        use_container_width=True
-                    )
+                    
+                    # Verificar si existe la columna 'Traspasos' en la tabla de temporadas
+                    if 'Traspasos' in resumen_pivot_temp.columns:
+                        st.dataframe(
+                            resumen_pivot_temp.style.format({
+                                'Ventas': '{:,.0f}',
+                                'Traspasos': '{:,.0f}'
+                            }),
+                            use_container_width=True
+                        )
+                    else:
+                        # Si no hay columna 'Traspasos', añadirla con valores 0
+                        resumen_pivot_temp['Traspasos'] = 0
+                        st.dataframe(
+                            resumen_pivot_temp.style.format({
+                                'Ventas': '{:,.0f}',
+                                'Traspasos': '{:,.0f}'
+                            }),
+                            use_container_width=True
+                        )
                 else:
                     st.info("No hay datos suficientes para mostrar la comparación.")
             else:
@@ -2267,21 +2324,14 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                 talla_mas_devuelta = talla_mas_devuelta_data.index[0]
                 talla_devuelta_unidades = talla_mas_devuelta_data.iloc[0]
         
-        # Familia más devuelta (excluyendo GR.ART.FICTICIO)
+        # Familia más devuelta
         familia_mas_devuelta = "Sin datos"
         familia_devuelta_unidades = 0
-        familia_ficticio_unidades = 0
         if not devoluciones.empty:
-            # Excluir 'GR.ART.FICTICIO' para el ranking principal
-            devoluciones_sin_ficticio = devoluciones[devoluciones['Familia'] != 'GR.ART.FICTICIO']
-            familia_mas_devuelta_data = devoluciones_sin_ficticio.groupby('Familia')['Cantidad'].sum().abs().sort_values(ascending=False).head(1)
+            familia_mas_devuelta_data = devoluciones.groupby('Familia')['Cantidad'].sum().abs().sort_values(ascending=False).head(1)
             if not familia_mas_devuelta_data.empty:
                 familia_mas_devuelta = familia_mas_devuelta_data.index[0]
                 familia_devuelta_unidades = familia_mas_devuelta_data.iloc[0]
-            # Calcular valor para 'GR.ART.FICTICIO' si existe
-            ficticio_data = devoluciones[devoluciones['Familia'] == 'GR.ART.FICTICIO'].groupby('Familia')['Cantidad'].sum().abs()
-            if not ficticio_data.empty:
-                familia_ficticio_unidades = ficticio_data.iloc[0]
         
         # Rebajas 1ª (Enero y Junio)
         ventas_rebajas_1 = 0
@@ -2388,10 +2438,9 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                         <p style="color: #dc2626; font-size: 12px; margin: 0;">{:.0f} unidades</p>
                     </div>
                     <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                        <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Familia más devuelta (sin ficticio)</p>
+                        <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Familia más devuelta</p>
                         <p style="color: #111827; font-size: 18px; font-weight: bold; margin: 0;">{}</p>
                         <p style="color: #dc2626; font-size: 12px; margin: 0;">{:.0f} unidades</p>
-                        {} <!-- Aquí mostramos el ficticio si existe -->
                     </div>
                     <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
                         <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Rebajas 1ª (Enero/Junio)</p>
@@ -2408,7 +2457,6 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         """.format(
             tienda_mas_devoluciones, ratio_devolucion_valor, talla_mas_devuelta, talla_devuelta_unidades, 
             familia_mas_devuelta, familia_devuelta_unidades,
-            f'<p style="color: #666666; font-size: 12px; margin: 0;">GR.ART.FICTICIO: {familia_ficticio_unidades:.0f} unidades</p>' if familia_ficticio_unidades > 0 else '',
             ventas_rebajas_1, porcentaje_rebajas_1, 
             ventas_rebajas_2, porcentaje_rebajas_2), unsafe_allow_html=True)
         
@@ -2756,6 +2804,104 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         else:
             st.info("No hay datos de Precio Coste, Beneficio o Cantidad disponibles para el análisis de márgenes.")
 
+    elif seccion == "Análisis con fotos":
+        st.markdown("## 📸 **Análisis con Fotos**")
+        st.markdown("Esta sección permite analizar los productos con imágenes visuales.")
+        
+        # Filtro por familia
+        st.markdown("### 🔍 **Filtro por Familia**")
+        # Usar la columna correcta después del procesamiento
+        columna_familia = "Familia" if "Familia" in df_ventas.columns else "Descripción Familia"
+        familias_disponibles = df_ventas[columna_familia].dropna().unique().tolist()
+        familias_disponibles.sort()
+        familias_opciones = ["Todas las familias"] + familias_disponibles
+        familia_seleccionada = st.selectbox("Seleccione por familia:", familias_opciones)
+        
+        # Aplicar filtro
+        df_ventas_filtrado = df_ventas.copy()
+        if familia_seleccionada != "Todas las familias":
+            df_ventas_filtrado = df_ventas_filtrado[df_ventas_filtrado[columna_familia] == familia_seleccionada]
+        
+        # Cargar datos originales de productos para acceder a la columna ACT
+        try:
+            import pandas as pd
+            df_productos_original = pd.read_excel('data/daatsetjoaquin.xlsx', sheet_name='Compra')
+        except Exception as e:
+            st.error(f"Error al cargar datos originales: {str(e)}")
+            return
+        
+        # Preparar datos para búsqueda de imágenes
+        df_ventas_filtrado['Código único'] = df_ventas_filtrado['Código único'].astype(str).str.strip()
+        
+        # Top 20 productos más vendidos
+        st.markdown("### 📈 **Top 20 Productos Más Vendidos**")
+        if len(df_ventas_filtrado) > 0:
+            # Usar solo los datos de ventas sin depender del merge
+            top_ventas = df_ventas_filtrado.groupby(['Código único', 'Familia'])['Cantidad'].sum().reset_index()
+            top_ventas = top_ventas.sort_values('Cantidad', ascending=False).head(20)
+            
+            if not top_ventas.empty:
+                st.markdown(f"**Mostrando {len(top_ventas)} productos principales:**")
+                for idx, row in top_ventas.iterrows():
+                    col1, col2, col3 = st.columns([3, 1, 1])
+                    with col1:
+                        st.write(f"**{row['Código único']}** - {row['Familia']} - **{row['Cantidad']} unidades**")
+                    with col2:
+                        # Buscar imagen en df_productos_original usando el código único
+                        # Limpiar espacios en blanco del código de ventas
+                        codigo_venta = row['Código único'].strip()
+                        
+                        # Buscar directamente en la columna 'ACT' original de productos
+                        imagen_producto = df_productos_original[df_productos_original['ACT'].str.strip() == codigo_venta]['url_image']
+                        
+                        imagen_url = imagen_producto.iloc[0] if not imagen_producto.empty and pd.notna(imagen_producto.iloc[0]) else ""
+                        
+                        if imagen_url and imagen_url != '' and imagen_url != 'nan':
+                            if st.button(f"🔗 Ver imagen", key=f"link_ventas_{idx}"):
+                                st.markdown(f"[📸 Abrir imagen en nueva pestaña]({imagen_url})")
+                        else:
+                            st.write("📷 Sin imagen")
+                    with col3:
+                        st.write(f"")
+            else:
+                st.info("No hay datos de ventas disponibles")
+        else:
+            st.warning("⚠️ No hay datos de ventas para procesar")
+        
+        # Top 20 productos menos vendidos
+        st.markdown("### 📉 **Top 20 Productos Menos Vendidos**")
+        if len(df_ventas_filtrado) > 0:
+            menos_ventas = df_ventas_filtrado.groupby(['Código único', 'Familia'])['Cantidad'].sum().reset_index()
+            menos_ventas = menos_ventas.sort_values('Cantidad', ascending=True).head(20)
+            
+            if not menos_ventas.empty:
+                st.markdown(f"**Mostrando {len(menos_ventas)} productos con menos ventas:**")
+                for idx, row in menos_ventas.iterrows():
+                    col1, col2, col3 = st.columns([3, 1, 1])
+                    with col1:
+                        st.write(f"**{row['Código único']}** - {row['Familia']} - **{row['Cantidad']} unidades**")
+                    with col2:
+                        # Buscar imagen en df_productos_original usando el código único
+                        # Limpiar espacios en blanco del código de ventas
+                        codigo_venta = row['Código único'].strip()
+                        
+                        # Buscar directamente en la columna 'ACT' original de productos
+                        imagen_producto = df_productos_original[df_productos_original['ACT'].str.strip() == codigo_venta]['url_image']
+                        
+                        imagen_url = imagen_producto.iloc[0] if not imagen_producto.empty and pd.notna(imagen_producto.iloc[0]) else ""
+                        
+                        if imagen_url and imagen_url != '' and imagen_url != 'nan':
+                            if st.button(f"🔗 Ver imagen", key=f"link_menos_ventas_{idx}"):
+                                st.markdown(f"[📸 Abrir imagen en nueva pestaña]({imagen_url})")
+                        else:
+                            st.write("📷 Sin imagen")
+                    with col3:
+                        st.write(f"")
+            else:
+                st.info("No hay datos de ventas disponibles")
+        else:
+            st.warning("⚠️ No hay datos de ventas para procesar")
+
     
         
 # Cached function for calculating store rankings
@@ -2808,7 +2954,8 @@ def preprocess_ventas_data(df_ventas):
     "Tema": "Tema",
     "Cantidad": "Cantidad",
     "P.V.P.": "PVP",
-    "Subtotal": "Beneficio"
+    "Subtotal": "Beneficio",
+    "url_image": "url_image"
     }
 
     # OPTIMIZATION: Only rename columns that exist
@@ -2823,7 +2970,7 @@ def preprocess_ventas_data(df_ventas):
 
     # OPTIMIZATION: Process code columns more efficiently
     if 'Código único' in df_ventas.columns:
-        df_ventas['Código único'] = df_ventas['Código único'].astype(str).str.split().str[0]
+        df_ventas['Código único'] = df_ventas['Código único'].astype(str).str.strip()
 
     
     if 'Familia' in df_ventas.columns:
@@ -2885,7 +3032,8 @@ def preprocess_productos_data(df_productos):
         "Fecha REAL entrada en almacén": "Fecha almacén",
         "Precio Coste": "Precio Coste",
         "P.V.P.": "PVP",
-        "Importe de Coste": "Importe de Coste"
+        "Importe de Coste": "Importe de Coste",
+        "url_image": "url_image"
     }
     
     # OPTIMIZATION: Only rename columns that exist
@@ -2900,7 +3048,7 @@ def preprocess_productos_data(df_productos):
 
     # OPTIMIZATION: Process code columns more efficiently
     if 'Código único' in df_productos.columns:
-        df_productos['Código único'] = df_productos['Código único'].astype(str).str.split().str[0]
+        df_productos['Código único'] = df_productos['Código único'].astype(str).str.strip()
 
     
     # OPTIMIZATION: Process numeric columns more efficiently
@@ -2911,7 +3059,21 @@ def preprocess_productos_data(df_productos):
     
     # OPTIMIZATION: Process theme column more efficiently
     if 'Tema' in df_productos.columns:
-        df_productos['Tema_temporada'] = df_productos['Tema'].astype(str).str[:6]
+        # Clean and process theme data
+        df_productos['Tema_temporada'] = df_productos['Tema'].astype(str).str.strip()
+        
+        # Handle cases where theme is undefined or invalid
+        df_productos['Tema_temporada'] = df_productos['Tema_temporada'].replace({
+            'nan': 'Sin Tema',
+            'None': 'Sin Tema',
+            'SIN DEFINIR': 'Sin Tema',
+            'SIN DEFINIR ': 'Sin Tema',
+            'SIN DEFINIR  ': 'Sin Tema'
+        })
+        
+        # Take first 6 characters only for valid themes
+        mask_valid = ~df_productos['Tema_temporada'].isin(['Sin Tema', 'nan', 'None'])
+        df_productos.loc[mask_valid, 'Tema_temporada'] = df_productos.loc[mask_valid, 'Tema_temporada'].str[:6]
     
     # OPTIMIZATION: Handle color column more efficiently
     if 'Color' not in df_productos.columns:
@@ -2943,8 +3105,7 @@ def preprocess_traspasos_data(df_traspasos):
         "Color": "Código Color",
         "Descripción Color": "Descripción Color",
         "Talla": "Talla",
-        "Enviado": "Cantidad enviada",
-        "Descripción Familia": "Familia"
+        "Enviado": "Cantidad enviada"
     }
     
     # OPTIMIZATION: Only rename columns that exist
@@ -2953,13 +3114,24 @@ def preprocess_traspasos_data(df_traspasos):
   
     # OPTIMIZATION: Process date column more efficiently
     if 'Fecha enviado' in df_traspasos.columns:
-        df_traspasos['Fecha enviado'] = pd.to_datetime(df_traspasos['Fecha enviado'], format='%d/%m/%Y', errors='coerce')
+        # Intentar diferentes formatos de fecha para ser más flexible
+        try:
+            # Primero intentar con el formato exacto dd/mm/yyyy
+            df_traspasos['Fecha enviado'] = pd.to_datetime(df_traspasos['Fecha enviado'], format='%d/%m/%Y', errors='coerce')
+        except:
+            try:
+                # Si falla, intentar con formato más flexible
+                df_traspasos['Fecha enviado'] = pd.to_datetime(df_traspasos['Fecha enviado'], dayfirst=True, errors='coerce')
+            except:
+                # Si todo falla, usar el parser automático
+                df_traspasos['Fecha enviado'] = pd.to_datetime(df_traspasos['Fecha enviado'], errors='coerce')
+        
         df_traspasos = df_traspasos.dropna(subset=['Fecha enviado'])
         df_traspasos['Mes'] = df_traspasos['Fecha enviado'].dt.to_period('M').astype(str)
 
     # OPTIMIZATION: Process code columns more efficiently
     if 'Código único' in df_traspasos.columns:
-        df_traspasos['Código único'] = df_traspasos['Código único'].astype(str).str.split().str[0]
+        df_traspasos['Código único'] = df_traspasos['Código único'].astype(str).str.strip()
     
     # OPTIMIZATION: Process numeric columns more efficiently
     if 'Cantidad enviada' in df_traspasos.columns:
@@ -2990,20 +3162,32 @@ def calculate_rotation_metrics(df_productos, df_traspasos, df_ventas):
     
     # Prepare data for rotation calculation - OPTIMIZED
     df_productos_rotacion = df_productos[['Código único', 'Talla', 'Fecha almacén']].copy()
-    df_productos_rotacion['Fecha almacén'] = pd.to_datetime(df_productos_rotacion['Fecha almacén'], format='%d/%m/%Y', errors='coerce')
     
-    df_traspasos_rotacion = df_traspasos[['Código único', 'Talla', 'Tienda', 'Fecha enviado']].copy()
-    df_traspasos_rotacion['Fecha enviado'] = pd.to_datetime(df_traspasos_rotacion['Fecha enviado'], format='%d/%m/%Y', errors='coerce')
+    # More robust date parsing
+    try:
+        df_productos_rotacion['Fecha almacén'] = pd.to_datetime(df_productos_rotacion['Fecha almacén'], format='%d/%m/%Y', errors='coerce')
+    except:
+        try:
+            df_productos_rotacion['Fecha almacén'] = pd.to_datetime(df_productos_rotacion['Fecha almacén'], dayfirst=True, errors='coerce')
+        except:
+            df_productos_rotacion['Fecha almacén'] = pd.to_datetime(df_productos_rotacion['Fecha almacén'], errors='coerce')
     
     ventas_rotacion = df_ventas[['Código único', 'Talla', 'Tienda', 'Fecha venta', 'Familia']].copy()
-    ventas_rotacion['Fecha venta'] = pd.to_datetime(ventas_rotacion['Fecha venta'], format='%d/%m/%Y', errors='coerce')
+    
+    # More robust date parsing for sales
+    try:
+        ventas_rotacion['Fecha venta'] = pd.to_datetime(ventas_rotacion['Fecha venta'], format='%d/%m/%Y', errors='coerce')
+    except:
+        try:
+            ventas_rotacion['Fecha venta'] = pd.to_datetime(ventas_rotacion['Fecha venta'], dayfirst=True, errors='coerce')
+        except:
+            ventas_rotacion['Fecha venta'] = pd.to_datetime(ventas_rotacion['Fecha venta'], errors='coerce')
     
     # Filter out invalid dates early for better performance
     df_productos_rotacion = df_productos_rotacion.dropna(subset=['Fecha almacén'])
-    df_traspasos_rotacion = df_traspasos_rotacion.dropna(subset=['Fecha enviado'])
     ventas_rotacion = ventas_rotacion.dropna(subset=['Fecha venta'])
     
-    if df_productos_rotacion.empty or df_traspasos_rotacion.empty or ventas_rotacion.empty:
+    if df_productos_rotacion.empty or ventas_rotacion.empty:
         return None, None, None, None, None, None, None, None, None, None, None, None
     
     # OPTIMIZED: Use only necessary columns for merge
@@ -3016,15 +3200,8 @@ def calculate_rotation_metrics(df_productos, df_traspasos, df_ventas):
     if ventas_con_entrada.empty:
         return None, None, None, None, None, None, None, None, None, None, None, None
     
-    # OPTIMIZED: Merge with traspasos using only necessary columns
-    rotacion_completa = ventas_con_entrada.merge(
-        df_traspasos_rotacion,
-        on=['Código único', 'Tienda'],
-        how='inner'
-    )
-    
-    if rotacion_completa.empty:
-        return None, None, None, None, None, None, None, None, None, None, None, None
+    # Use sales + warehouse data directly (more reliable than trying to match transfers)
+    rotacion_completa = ventas_con_entrada.copy()
     
     # Calculate rotation days with validation
     rotacion_completa['Dias_Rotacion'] = (
@@ -3032,12 +3209,17 @@ def calculate_rotation_metrics(df_productos, df_traspasos, df_ventas):
     ).dt.days
     
     # Filter valid rotation days (0-365 days to avoid extreme outliers)
+    # Also ensure sales date is after warehouse entry date
     rotacion_completa = rotacion_completa[
         (rotacion_completa['Dias_Rotacion'] >= 0) & 
-        (rotacion_completa['Dias_Rotacion'] <= 365)
+        (rotacion_completa['Dias_Rotacion'] <= 365) &
+        (rotacion_completa['Fecha venta'] >= rotacion_completa['Fecha almacén'])
     ]
     
-    if rotacion_completa.empty:
+
+    
+    # Only proceed if we have enough valid data
+    if len(rotacion_completa) < 10:
         return None, None, None, None, None, None, None, None, None, None, None, None
     
     # Calculate comprehensive rotation metrics by store
@@ -3070,7 +3252,7 @@ def calculate_rotation_metrics(df_productos, df_traspasos, df_ventas):
     
     if not rotacion_por_tienda.empty:
         # Filter stores with minimum data points for reliability
-        tiendas_confiables = rotacion_por_tienda[rotacion_por_tienda['Productos_Con_Rotacion'] >= 5]
+        tiendas_confiables = rotacion_por_tienda[rotacion_por_tienda['Productos_Con_Rotacion'] >= 3]
         
         if not tiendas_confiables.empty:
             # Store with highest rotation (lowest median days - more reliable than mean)
@@ -3082,10 +3264,13 @@ def calculate_rotation_metrics(df_productos, df_traspasos, df_ventas):
             idx_menor = tiendas_confiables['Dias_Mediana'].idxmax()
             tienda_menor_rotacion = tiendas_confiables.loc[idx_menor, 'Tienda']
             tienda_menor_rotacion_dias = tiendas_confiables.loc[idx_menor, 'Dias_Mediana']
+            
+            print(f"DEBUG: Store with highest rotation: {tienda_mayor_rotacion} ({tienda_mayor_rotacion_dias:.1f} days)")
+            print(f"DEBUG: Store with lowest rotation: {tienda_menor_rotacion} ({tienda_menor_rotacion_dias:.1f} days)")
     
     if not rotacion_por_producto.empty:
         # Filter products with minimum data points for reliability
-        productos_confiables = rotacion_por_producto[rotacion_por_producto['Ventas_Con_Rotacion'] >= 3]
+        productos_confiables = rotacion_por_producto[rotacion_por_producto['Ventas_Con_Rotacion'] >= 2]
         
         if not productos_confiables.empty:
             # Product with highest rotation (lowest median days)

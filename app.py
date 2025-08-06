@@ -30,7 +30,8 @@ def load_excel_data(file):
             dtype={
                 'ACT': str,
                 'Cantidad Pedida': 'Int64',
-                'P.V.P.': 'Float64'
+                'P.V.P.': 'Float64',
+                'url_image': str  # Add url_image column
             },
             na_values=['', 'nan', 'NaN'],
             keep_default_na=False
@@ -41,7 +42,8 @@ def load_excel_data(file):
             sheet_name="Traspasos de almacén a tienda",
             dtype={
                 'ACT': str,
-                'Enviado': 'Int64'
+                'Enviado': 'Int64',
+                'url_image': str  # Add url_image column
             },
             na_values=['', 'nan', 'NaN'],
             keep_default_na=False
@@ -54,7 +56,8 @@ def load_excel_data(file):
                 'ACT': str,
                 'Cantidad': 'Int64',
                 'P.V.P.': 'Float64',
-                'Subtotal': 'Float64'
+                'Subtotal': 'Float64',
+                'url_image': str  # Add url_image column
             },
             na_values=['', 'nan', 'NaN'],
             keep_default_na=False
@@ -64,7 +67,7 @@ def load_excel_data(file):
         for df, df_name in [(df_productos, 'Productos'), (df_traspasos, 'Traspasos'), (df_ventas, 'Ventas')]:
             # Convert string columns to more efficient types
             for col in df.columns:
-                if df[col].dtype == 'object':
+                if df[col].dtype == 'object' and col != 'url_image':  # Preserve url_image as string
                     # Check if column contains mostly numeric data
                     numeric_count = pd.to_numeric(df[col], errors='coerce').notna().sum()
                     if numeric_count > len(df) * 0.8:  # If 80%+ is numeric
@@ -76,8 +79,10 @@ def load_excel_data(file):
             # OPTIMIZATION: Remove completely empty rows early
             df.dropna(how='all', inplace=True)
             
-            # OPTIMIZATION: Remove completely empty columns early
-            df.dropna(axis=1, how='all', inplace=True)
+            # OPTIMIZATION: Remove completely empty columns early (except url_image)
+            empty_cols = df.columns[df.isna().all()]
+            empty_cols = [col for col in empty_cols if col != 'url_image']
+            df.drop(columns=empty_cols, inplace=True)
         
         return df_productos, df_traspasos, df_ventas
         
@@ -239,7 +244,8 @@ else:
                 seccion = st.sidebar.selectbox("Área de Análisis", [
                     "Resumen General",
                     "Geográfico y Tiendas",
-                    "Producto, Campaña, Devoluciones y Rentabilidad"
+                    "Producto, Campaña, Devoluciones y Rentabilidad",
+                    "Análisis con fotos"
                 ])
                 st.sidebar.header("Filtros")
                 # --- Filtro de temporada ---
