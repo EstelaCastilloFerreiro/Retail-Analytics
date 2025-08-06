@@ -320,6 +320,8 @@ def viz_container(title, render_function):
     st.markdown('</div>', unsafe_allow_html=True)
 
 def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
+    # Asegurar que pandas esté disponible en el scope local
+    import pandas as pd
     setup_streamlit_styles()
     
     # Use cached preprocessing for better performance
@@ -680,11 +682,11 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                         tallas_presentes = df_ventas_temp['Talla'].dropna().unique()
                         
                         if len(tallas_presentes) > 0:
+                            # Inicializar tallas_sumadas_completo fuera del try
+                            tallas_sumadas_completo = None
+                            
                             try:
                                 tallas_orden = sorted(tallas_presentes, key=custom_sort_key)
-                                
-        
-                                
                                 
                                 # Asegurar que todas las tallas aparezcan en el gráfico
                                 # Crear un DataFrame completo con todas las combinaciones talla-temporada
@@ -716,42 +718,48 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                                 # Crear DataFrame completo
                                 tallas_sumadas_completo = pd.DataFrame(tallas_completas)
                                 
-                                # Verificar tallas en DataFrame completo
-                                tallas_en_completo = tallas_sumadas_completo['Talla'].unique()
-                                
-                                
-                                # Verificar cantidades por talla
-                                cantidades_por_talla = tallas_sumadas_completo.groupby('Talla')['Cantidad'].sum()
-                                
-                                # Gráfico de barras apiladas por Temporada
-                                temporada_colors = get_temporada_colors(df_ventas_temp)
-                                
-                                # Calcular altura dinámica basada en la cantidad de tallas
-                                num_tallas = len(tallas_en_completo)  # Usar tallas del DataFrame completo
-                                altura_dinamica = max(400, min(800, num_tallas * 50))  # Entre 400 y 800px
-                                
-                                # Ordenar tallas del DataFrame completo usando custom_sort_key
-                                tallas_orden_completo = sorted(tallas_en_completo, key=custom_sort_key)
-                                
-                                
-                                # Forzar todas las tallas a string para evitar problemas de categorías mixtas
-                                tallas_sumadas_completo['Talla'] = tallas_sumadas_completo['Talla'].astype(str)
-                                tallas_orden_completo = [str(t) for t in tallas_orden_completo]
-                                
-                                # Separar tallas numéricas y de letras
-                                def es_numero(t):
-                                    try:
-                                        int(t)
-                                        return True
-                                    except:
-                                        return False
-                                
-                                tallas_numericas = [t for t in tallas_orden_completo if es_numero(t)]
-                                tallas_letras = [t for t in tallas_orden_completo if not es_numero(t)]
-                                
-                                # Filtrar DataFrame para cada tipo
-                                df_num = tallas_sumadas_completo[tallas_sumadas_completo['Talla'].isin(tallas_numericas)]
-                                df_let = tallas_sumadas_completo[tallas_sumadas_completo['Talla'].isin(tallas_letras)]
+                                # Verificar que el DataFrame se creó correctamente
+                                if tallas_sumadas_completo is not None and not tallas_sumadas_completo.empty:
+                                    # Verificar tallas en DataFrame completo
+                                    tallas_en_completo = tallas_sumadas_completo['Talla'].unique()
+                                    
+                                    # Verificar cantidades por talla
+                                    cantidades_por_talla = tallas_sumadas_completo.groupby('Talla')['Cantidad'].sum()
+                                    
+                                    # Gráfico de barras apiladas por Temporada
+                                    temporada_colors = get_temporada_colors(df_ventas_temp)
+                                    
+                                    # Calcular altura dinámica basada en la cantidad de tallas
+                                    num_tallas = len(tallas_en_completo)  # Usar tallas del DataFrame completo
+                                    altura_dinamica = max(400, min(800, num_tallas * 50))  # Entre 400 y 800px
+                                    
+                                    # Ordenar tallas del DataFrame completo usando custom_sort_key
+                                    tallas_orden_completo = sorted(tallas_en_completo, key=custom_sort_key)
+                                    
+                                    # Forzar todas las tallas a string para evitar problemas de categorías mixtas
+                                    tallas_sumadas_completo['Talla'] = tallas_sumadas_completo['Talla'].astype(str)
+                                    tallas_orden_completo = [str(t) for t in tallas_orden_completo]
+                                    
+                                    # Separar tallas numéricas y de letras
+                                    def es_numero(t):
+                                        try:
+                                            int(t)
+                                            return True
+                                        except:
+                                            return False
+                                    
+                                    tallas_numericas = [t for t in tallas_orden_completo if es_numero(t)]
+                                    tallas_letras = [t for t in tallas_orden_completo if not es_numero(t)]
+                                    
+                                    # Filtrar DataFrame para cada tipo
+                                    df_num = tallas_sumadas_completo[tallas_sumadas_completo['Talla'].isin(tallas_numericas)]
+                                    df_let = tallas_sumadas_completo[tallas_sumadas_completo['Talla'].isin(tallas_letras)]
+                                    
+                                    # Mostrar gráfico de tallas numéricas si existen
+                                else:
+                                    st.warning("⚠️ No se pudieron procesar los datos de tallas correctamente.")
+                                    df_num = pd.DataFrame()
+                                    df_let = pd.DataFrame()
                                 
                                 # Mostrar gráfico de tallas numéricas si existen
                                 if len(tallas_numericas) > 0 and not df_num.empty:
@@ -830,7 +838,10 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                                     st.warning("⚠️ No hay tallas válidas en los datos de ventas.")
                             except Exception as e:
                                 st.warning(f"⚠️ Error al crear el gráfico de tallas: {str(e)}")
-                                st.info("📊 Datos disponibles: " + str(tallas_sumadas_completo.head()))
+                                if tallas_sumadas_completo is not None:
+                                    st.info("📊 Datos disponibles: " + str(tallas_sumadas_completo.head()))
+                                else:
+                                    st.info("📊 No hay datos disponibles para mostrar")
                         else:
                             st.warning("⚠️ No hay tallas válidas en los datos de ventas.")
                     else:
