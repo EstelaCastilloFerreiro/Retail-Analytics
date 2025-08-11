@@ -2833,13 +2833,13 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         if familia_seleccionada != "Todas las familias":
             df_ventas_filtrado = df_ventas_filtrado[df_ventas_filtrado[columna_familia] == familia_seleccionada]
         
-        # Cargar datos originales de productos para acceder a la columna ACT
-        try:
-            import pandas as pd
-            df_productos_original = pd.read_excel('data/daatsetjoaquin.xlsx', sheet_name='Compra')
-        except Exception as e:
-            st.error(f"Error al cargar datos originales: {str(e)}")
-            return
+        # Verificar si tenemos URLs de imágenes directamente en ventas
+        tiene_urls = 'url_image' in df_ventas_filtrado.columns
+        
+        if tiene_urls:
+            st.success("✅ URLs de imágenes disponibles directamente en los datos de ventas")
+        else:
+            st.warning("⚠️ No se encontraron URLs de imágenes en los datos de ventas")
         
         # Preparar datos para búsqueda de imágenes
         df_ventas_filtrado['Código único'] = df_ventas_filtrado['Código único'].astype(str).str.strip()
@@ -2858,16 +2858,9 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                     with col1:
                         st.write(f"**{row['Código único']}** - {row['Familia']} - **{row['Cantidad']} unidades**")
                     with col2:
-                        # Buscar imagen en df_productos_original usando el código único
-                        # Limpiar espacios en blanco del código de ventas
-                        codigo_venta = row['Código único'].strip()
-                        
-                        # Buscar directamente en la columna 'ACT' original de productos
-                        imagen_producto = df_productos_original[df_productos_original['ACT'].str.strip() == codigo_venta]['url_image']
-                        
-                        imagen_url = imagen_producto.iloc[0] if not imagen_producto.empty and pd.notna(imagen_producto.iloc[0]) else ""
-                        
-                        if imagen_url and imagen_url != '' and imagen_url != 'nan':
+                        # Obtener URL de imagen directamente de la fila de ventas
+                        if 'url_image' in row and pd.notna(row['url_image']) and row['url_image'] != '' and row['url_image'] != 'nan':
+                            imagen_url = row['url_image']
                             if st.button(f"🔗 Ver imagen", key=f"link_ventas_{idx}"):
                                 st.markdown(f"[📸 Abrir imagen en nueva pestaña]({imagen_url})")
                         else:
@@ -2892,16 +2885,9 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                     with col1:
                         st.write(f"**{row['Código único']}** - {row['Familia']} - **{row['Cantidad']} unidades**")
                     with col2:
-                        # Buscar imagen en df_productos_original usando el código único
-                        # Limpiar espacios en blanco del código de ventas
-                        codigo_venta = row['Código único'].strip()
-                        
-                        # Buscar directamente en la columna 'ACT' original de productos
-                        imagen_producto = df_productos_original[df_productos_original['ACT'].str.strip() == codigo_venta]['url_image']
-                        
-                        imagen_url = imagen_producto.iloc[0] if not imagen_producto.empty and pd.notna(imagen_producto.iloc[0]) else ""
-                        
-                        if imagen_url and imagen_url != '' and imagen_url != 'nan':
+                        # Obtener URL de imagen directamente de la fila de ventas
+                        if 'url_image' in row and pd.notna(row['url_image']) and row['url_image'] != '' and row['url_image'] != 'nan':
+                            imagen_url = row['url_image']
                             if st.button(f"🔗 Ver imagen", key=f"link_menos_ventas_{idx}"):
                                 st.markdown(f"[📸 Abrir imagen en nueva pestaña]({imagen_url})")
                         else:

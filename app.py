@@ -57,7 +57,8 @@ def load_excel_data(file):
                 'Cantidad': 'Int64',
                 'P.V.P.': 'Float64',
                 'Subtotal': 'Float64',
-                'url_image': str  # Add url_image column
+                'url_image': str,  # Add url_image column
+                'url_thumbnail': str  # Add url_thumbnail column
             },
             na_values=['', 'nan', 'NaN'],
             keep_default_na=False
