@@ -2899,16 +2899,19 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
     elif seccion == "Análisis con fotos":
         st.markdown("## 📸 **Análisis con Fotos**")
         
+        # Filtrar out GR.ART.FICTICIO entries first
+        df_ventas_sin_ficticio = df_ventas[df_ventas[columna_familia] != "GR.ART.FICTICIO"].copy()
+        
         # Filtro por familia
         st.markdown("### 🔍 **Filtro por Familia**")
         columna_familia = "Familia" if "Familia" in df_ventas.columns else "Descripción Familia"
-        familias_disponibles = df_ventas[columna_familia].dropna().unique().tolist()
+        familias_disponibles = df_ventas_sin_ficticio[columna_familia].dropna().unique().tolist()
         familias_disponibles.sort()
         familias_opciones = ["Todas las familias"] + familias_disponibles
         familia_seleccionada = st.selectbox("Seleccione por familia:", familias_opciones)
         
         # Aplicar filtro
-        df_ventas_filtrado = df_ventas.copy()
+        df_ventas_filtrado = df_ventas_sin_ficticio.copy()
         if familia_seleccionada != "Todas las familias":
             df_ventas_filtrado = df_ventas_filtrado[df_ventas_filtrado[columna_familia] == familia_seleccionada]
         
@@ -2934,7 +2937,18 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                             imagen_url = str(row['url_image']).strip()
                             if imagen_url and imagen_url != 'nan':
                                 if st.button("📸 Foto", key=f"foto_ventas_{idx}"):
-                                    st.markdown(f"[🔗 Abrir imagen en nueva pestaña]({imagen_url})")
+                                    try:
+                                        # Clean the URL - remove @ if present and ensure it's a valid URL
+                                        clean_url = imagen_url.lstrip('@') if imagen_url.startswith('@') else imagen_url
+                                        
+                                        # Display the image directly
+                                        st.image(clean_url, caption="Imagen del producto", width=200)
+                                        # Link to open in new tab
+                                        st.markdown(f"[🔗 Abrir imagen en nueva pestaña]({clean_url})")
+                                    except Exception as e:
+                                        # Fallback to just the link if image loading fails
+                                        st.error(f"No se pudo cargar la imagen: {e}")
+                                        st.markdown(f"[🔗 Abrir imagen en nueva pestaña]({imagen_url})")
                             else:
                                 st.write("📷 Sin imagen")
                         else:
@@ -2963,7 +2977,18 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                             imagen_url = str(row['url_image']).strip()
                             if imagen_url and imagen_url != 'nan':
                                 if st.button("📸 Foto", key=f"foto_menos_ventas_{idx}"):
-                                    st.markdown(f"[🔗 Abrir imagen en nueva pestaña]({imagen_url})")
+                                    try:
+                                        # Clean the URL - remove @ if present and ensure it's a valid URL
+                                        clean_url = imagen_url.lstrip('@') if imagen_url.startswith('@') else imagen_url
+                                        
+                                        # Display the image directly
+                                        st.image(clean_url, caption="Imagen del producto", width=200)
+                                        # Link to open in new tab
+                                        st.markdown(f"[🔗 Abrir imagen en nueva pestaña]({clean_url})")
+                                    except Exception as e:
+                                        # Fallback to just the link if image loading fails
+                                        st.error(f"No se pudo cargar la imagen: {e}")
+                                        st.markdown(f"[🔗 Abrir imagen en nueva pestaña]({imagen_url})")
                             else:
                                 st.write("📷 Sin imagen")
                         else:
