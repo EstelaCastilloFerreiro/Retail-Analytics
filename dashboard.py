@@ -367,74 +367,75 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
 
     if seccion == "Resumen General":
         try:
-            # Calcular KPIs según las especificaciones correctas
+            # Calcular KPIs separando GR.ART.FICTICIO del resto
             
-            # 1. VENTAS NETAS: Suma de todo donde Cantidad > 0
-            ventas_netas = df_ventas[df_ventas['Cantidad'] > 0]['Beneficio'].sum()
+            # 1. KPIs EXCLUYENDO GR.ART.FICTICIO
+            df_ventas_reales = df_ventas[df_ventas['Familia'] != 'GR.ART.FICTICIO']
             
-            # 2. DEVOLUCIONES: Suma de todo donde Cantidad < 0
-            devoluciones = df_ventas[df_ventas['Cantidad'] < 0]['Beneficio'].sum()
+            # Ventas brutas = devoluciones + ventas
+            ventas_positivas_reales = df_ventas_reales[df_ventas_reales['Cantidad'] > 0]['Beneficio'].sum()
+            devoluciones_reales = abs(df_ventas_reales[df_ventas_reales['Cantidad'] < 0]['Beneficio'].sum())
+            total_ventas_brutas_reales = ventas_positivas_reales + devoluciones_reales
             
-            # 3. VENTAS BRUTAS: Devoluciones + Ventas netas
-            ventas_brutas = ventas_netas + devoluciones
+            # Total neto = solo ventas positivas
+            total_neto_reales = ventas_positivas_reales
             
-            # 4. VENTAS TIENDAS FÍSICAS: Suma de Beneficio donde Cantidad > 0 y Tienda NO es online
+            # Tasa devolución = devoluciones / total neto
+            tasa_devolucion_reales = (devoluciones_reales / total_neto_reales) * 100 if total_neto_reales > 0 else 0
+            
+            # Número familias únicas
+            num_familias_reales = df_ventas_reales['Familia'].nunique()
+            
+            # 2. KPIs SOLO GR.ART.FICTICIO
+            df_ventas_ficticio = df_ventas[df_ventas['Familia'] == 'GR.ART.FICTICIO']
+            
+            ventas_positivas_ficticio = df_ventas_ficticio[df_ventas_ficticio['Cantidad'] > 0]['Beneficio'].sum()
+            devoluciones_ficticio = abs(df_ventas_ficticio[df_ventas_ficticio['Cantidad'] < 0]['Beneficio'].sum())
+            total_ventas_brutas_ficticio = ventas_positivas_ficticio + devoluciones_ficticio
+            total_neto_ficticio = ventas_positivas_ficticio
+            tasa_devolucion_ficticio = (devoluciones_ficticio / total_neto_ficticio) * 100 if total_neto_ficticio > 0 else 0
+            
+            # 3. ANÁLISIS POR TIPO DE TIENDA (excluyendo GR.ART.FICTICIO)
+            # Definir tiendas online específicas
             tiendas_online_list = [
                 'ECI NAELLE ONLINE',
-                'ECI ONLINE GESTION',
+                'ECI ONLINE GESTION', 
                 'ET0N ECI ONLINE',
                 'NAELLE ONLINE B2C',
                 'OUTLET TRUCCO ONLINE B2O',
                 'TRUCCO ONLINE B2C'
             ]
             
-            ventas_fisicas = df_ventas[
+            # Filtrar solo ventas positivas y excluir GR.ART.FICTICIO
+            df_ventas_analisis = df_ventas[
                 (df_ventas['Cantidad'] > 0) & 
-                (~df_ventas['Tienda'].isin(tiendas_online_list))
-            ]['Beneficio'].sum()
+                (df_ventas['Familia'] != 'GR.ART.FICTICIO')
+            ]
             
-            # 5. VENTAS ONLINE: Suma de Beneficio para las tiendas online específicas
-            ventas_online = df_ventas[
-                (df_ventas['Cantidad'] > 0) & 
-                (df_ventas['Tienda'].isin(tiendas_online_list))
-            ]['Beneficio'].sum()
+            # Identificar tiendas online vs físicas
+            tiendas_online_mask = df_ventas_analisis['Tienda'].isin(tiendas_online_list)
+            ventas_fisicas = df_ventas_analisis[~tiendas_online_mask]
+            ventas_online = df_ventas_analisis[tiendas_online_mask]
             
-            # 6. TASA DE DEVOLUCIÓN: Devoluciones / Ventas netas * 100
-            tasa_devolucion = (devoluciones / ventas_netas * 100) if ventas_netas > 0 else 0
+            # Calcular KPIs por tipo de tienda
+            ventas_fisicas_dinero = ventas_fisicas['Beneficio'].sum()
+            ventas_online_dinero = ventas_online['Beneficio'].sum()
+            tiendas_fisicas_count = ventas_fisicas['Código Tienda'].nunique()
+            tiendas_online_count = ventas_online['Código Tienda'].nunique()
             
-            # 7. FAMILIAS (excluyendo GR.ART.FICTICIO)
-            familias_reales = df_ventas[df_ventas['Familia'] != 'GR.ART.FICTICIO']['Familia'].nunique()
-            
-            # 8. TOTAL NETO: Ventas netas - Devoluciones
-            total_neto = ventas_netas - devoluciones
-            
-            # 9. CONTAR TIENDAS
-            tiendas_fisicas_count = df_ventas[
-                (df_ventas['Cantidad'] > 0) & 
-                (~df_ventas['Tienda'].isin(tiendas_online_list))
-            ]['Tienda'].nunique()
-            
-            tiendas_online_count = df_ventas[
-                (df_ventas['Cantidad'] > 0) & 
-                (df_ventas['Tienda'].isin(tiendas_online_list))
-            ]['Tienda'].nunique()
-
-            # Los KPIs principales se muestran en las tarjetas de abajo
-            # Sin información de debug adicional
-            
-            # KPIs Generales en una sola fila
+            # KPIs Generales (excluyendo GR.ART.FICTICIO)
             st.markdown("""
                 <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; background-color: white;">
                     <div style="color: #666666; font-size: 16px; font-weight: 600; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e5e7eb;">
-                        KPIs Generales
+                        KPIs Generales (Excluyendo GR.ART.FICTICIO)
                     </div>
                     <div style="display: flex; justify-content: space-between; gap: 15px;">
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Ventas Brutas</p>
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Total Ventas Brutas</p>
                             <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
                         </div>
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Devoluciones</p>
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Devoluciones Reales</p>
                             <p style="color: #dc2626; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
                         </div>
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
@@ -447,61 +448,61 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                         </div>
                     </div>
                 </div>
-            """.format(ventas_brutas, devoluciones, total_neto, familias_reales), unsafe_allow_html=True)
+            """.format(total_ventas_brutas_reales, devoluciones_reales, total_neto_reales, num_familias_reales), unsafe_allow_html=True)
             
-            # KPIs por Tipo de Tienda en una sola fila
+            # KPIs GR.ART.FICTICIO
             st.markdown("""
                 <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; background-color: white;">
                     <div style="color: #666666; font-size: 16px; font-weight: 600; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e5e7eb;">
-                        KPIs por Tipo de Tienda
+                        KPIs GR.ART.FICTICIO
                     </div>
                     <div style="display: flex; justify-content: space-between; gap: 15px;">
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Nº Tiendas Físicas</p>
-                            <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{}</p>
-                        </div>
-                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Ventas Tiendas Físicas</p>
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Total Ventas Brutas</p>
                             <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
                         </div>
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Nº Tiendas Online</p>
-                            <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{}</p>
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Devoluciones</p>
+                            <p style="color: #dc2626; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
                         </div>
-                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Ventas Online</p>
-                            <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
-                        </div>
-                    </div>
-                </div>
-            """.format(tiendas_fisicas_count, ventas_fisicas, tiendas_online_count, ventas_online), unsafe_allow_html=True)
-            
-            # KPI adicional: Tasa de Devolución
-            st.markdown("""
-                <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; background-color: white;">
-                    <div style="color: #666666; font-size: 16px; font-weight: 600; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e5e7eb;">
-                        Indicadores de Calidad
-                    </div>
-                    <div style="display: flex; justify-content: space-between; gap: 15px;">
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
                             <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Tasa Devolución</p>
                             <p style="color: #dc2626; font-size: 24px; font-weight: bold; margin: 0;">{:.1f}%</p>
                         </div>
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Total Tiendas</p>
-                            <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{}</p>
-                        </div>
-                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
                             <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Total Neto</p>
                             <p style="color: #059669; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
                         </div>
+                    </div>
+                </div>
+            """.format(total_ventas_brutas_ficticio, devoluciones_ficticio, tasa_devolucion_ficticio, total_neto_ficticio), unsafe_allow_html=True)
+            
+            # KPIs por Tipo de Tienda
+            st.markdown("""
+                <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; background-color: white;">
+                    <div style="color: #666666; font-size: 16px; font-weight: 600; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e5e7eb;">
+                        KPIs por Tipo de Tienda (Excluyendo GR.ART.FICTICIO)
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 15px;">
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Estado</p>
-                            <p style="color: #059669; font-size: 18px; font-weight: bold; margin: 0;">✅ Correcto</p>
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Tiendas Físicas</p>
+                            <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{}</p>
+                        </div>
+                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Ventas Netas Físicas</p>
+                            <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
+                        </div>
+                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Tiendas Online</p>
+                            <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{}</p>
+                        </div>
+                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Ventas Netas Online</p>
+                            <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
                         </div>
                     </div>
                 </div>
-            """.format(tasa_devolucion, tiendas_fisicas_count + tiendas_online_count, total_neto), unsafe_allow_html=True)
+            """.format(tiendas_fisicas_count, ventas_fisicas_dinero, tiendas_online_count, ventas_online_dinero), unsafe_allow_html=True)
             
            
             
