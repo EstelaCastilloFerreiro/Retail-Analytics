@@ -2900,12 +2900,12 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         st.markdown("## 📸 **Análisis con Fotos**")
         
         # Filtrar out GR.ART.FICTICIO entries first
-        df_ventas_sin_ficticio = df_ventas[df_ventas[columna_familia] != "GR.ART.FICTICIO"].copy()
+        df_ventas_sin_ficticio = df_ventas[df_ventas['Familia'] != "GR.ART.FICTICIO"].copy()
         
         # Filtro por familia
         st.markdown("### 🔍 **Filtro por Familia**")
-        columna_familia = "Familia" if "Familia" in df_ventas.columns else "Descripción Familia"
-        familias_disponibles = df_ventas_sin_ficticio[columna_familia].dropna().unique().tolist()
+        familia = "Familia" if "Familia" in df_ventas.columns else "Descripción Familia"
+        familias_disponibles = df_ventas_sin_ficticio['Familia'].dropna().unique().tolist()
         familias_disponibles.sort()
         familias_opciones = ["Todas las familias"] + familias_disponibles
         familia_seleccionada = st.selectbox("Seleccione por familia:", familias_opciones)
@@ -2913,15 +2913,16 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         # Aplicar filtro
         df_ventas_filtrado = df_ventas_sin_ficticio.copy()
         if familia_seleccionada != "Todas las familias":
-            df_ventas_filtrado = df_ventas_filtrado[df_ventas_filtrado[columna_familia] == familia_seleccionada]
+            df_ventas_filtrado = df_ventas_filtrado[df_ventas_filtrado['Familia'] == familia_seleccionada]
         
-        # Preparar datos
+        # Preparar datos - agrupar por código sin el último carácter (talla)
         df_ventas_filtrado['Código único'] = df_ventas_filtrado['Código único'].astype(str).str.strip()
+        df_ventas_filtrado['Código base'] = df_ventas_filtrado['Código único'].str[:-1]  # Excluir último carácter (talla)
         
         # Top 20 productos más vendidos
         st.markdown("### 📈 **Top 20 Productos Más Vendidos**")
         if len(df_ventas_filtrado) > 0:
-            top_ventas = df_ventas_filtrado.groupby(['Código único', 'Familia']).agg({
+            top_ventas = df_ventas_filtrado.groupby(['Código base', 'Familia']).agg({
                 'Cantidad': 'sum',
                 'url_image': 'first'
             }).reset_index()
@@ -2931,7 +2932,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                 for idx, row in top_ventas.iterrows():
                     col1, col2 = st.columns([4, 1])
                     with col1:
-                        st.write(f"**{row['Código único']}** - {row['Familia']} - **{row['Cantidad']} unidades**")
+                        st.write(f"**{row['Código base']}** - {row['Familia']} - **{row['Cantidad']} unidades**")
                     with col2:
                         if 'url_image' in row and pd.notna(row['url_image']):
                             imagen_url = str(row['url_image']).strip()
@@ -2961,7 +2962,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         # Top 20 productos menos vendidos
         st.markdown("### 📉 **Top 20 Productos Menos Vendidos**")
         if len(df_ventas_filtrado) > 0:
-            menos_ventas = df_ventas_filtrado.groupby(['Código único', 'Familia']).agg({
+            menos_ventas = df_ventas_filtrado.groupby(['Código base', 'Familia']).agg({
                 'Cantidad': 'sum',
                 'url_image': 'first'
             }).reset_index()
@@ -2971,7 +2972,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                 for idx, row in menos_ventas.iterrows():
                     col1, col2 = st.columns([4, 1])
                     with col1:
-                        st.write(f"**{row['Código único']}** - {row['Familia']} - **{row['Cantidad']} unidades**")
+                        st.write(f"**{row['Código base']}** - {row['Familia']} - **{row['Cantidad']} unidades**")
                     with col2:
                         if 'url_image' in row and pd.notna(row['url_image']):
                             imagen_url = str(row['url_image']).strip()
