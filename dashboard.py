@@ -367,60 +367,57 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
 
     if seccion == "Resumen General":
         try:
-            # Calcular KPIs usando SOLO columnas que existen
-            # Separar transacciones por tipo para cálculos más precisos
+            # Calcular KPIs según las especificaciones correctas
             
-            # 1. VENTAS REALES (cantidad > 0)
-            ventas_positivas = df_ventas[df_ventas['Cantidad'] > 0]
-            total_ventas_dinero = ventas_positivas['Beneficio'].sum()
+            # 1. VENTAS NETAS: Suma de todo donde Cantidad > 0
+            ventas_netas = df_ventas[df_ventas['Cantidad'] > 0]['Beneficio'].sum()
             
-            # 2. DEVOLUCIONES REALES (cantidad = -1, excluyendo GR.ART.FICTICIO)
-            devoluciones_reales = df_ventas[
-                (df_ventas['Cantidad'] == -1) & 
-                (df_ventas['Familia'] != 'GR.ART.FICTICIO')
+            # 2. DEVOLUCIONES: Suma de todo donde Cantidad < 0
+            devoluciones = df_ventas[df_ventas['Cantidad'] < 0]['Beneficio'].sum()
+            
+            # 3. VENTAS BRUTAS: Devoluciones + Ventas netas
+            ventas_brutas = ventas_netas + devoluciones
+            
+            # 4. VENTAS TIENDAS FÍSICAS: Suma de Beneficio donde Cantidad > 0 y Tienda NO es online
+            tiendas_online_list = [
+                'ECI NAELLE ONLINE',
+                'ECI ONLINE GESTION',
+                'ET0N ECI ONLINE',
+                'NAELLE ONLINE B2C',
+                'OUTLET TRUCCO ONLINE B2O',
+                'TRUCCO ONLINE B2C'
             ]
-            total_devoluciones_reales = abs(devoluciones_reales['Beneficio'].sum())
             
-            # 3. AJUSTES DE STOCK (cantidad = -2 a -10)
-            ajustes_stock = df_ventas[
-                (df_ventas['Cantidad'] >= -10) & 
-                (df_ventas['Cantidad'] <= -2)
-            ]
-            total_ajustes_stock = abs(ajustes_stock['Beneficio'].sum())
+            ventas_fisicas = df_ventas[
+                (df_ventas['Cantidad'] > 0) & 
+                (~df_ventas['Tienda'].isin(tiendas_online_list))
+            ]['Beneficio'].sum()
             
-            # 4. TRANSFERENCIAS (cantidad < -10)
-            transferencias = df_ventas[df_ventas['Cantidad'] < -10]
-            total_transferencias = abs(transferencias['Beneficio'].sum())
+            # 5. VENTAS ONLINE: Suma de Beneficio para las tiendas online específicas
+            ventas_online = df_ventas[
+                (df_ventas['Cantidad'] > 0) & 
+                (df_ventas['Tienda'].isin(tiendas_online_list))
+            ]['Beneficio'].sum()
             
-            # 5. ARTÍCULOS FICTICIOS (GR.ART.FICTICIO con cantidad negativa)
-            articulos_ficticios = df_ventas[
-                (df_ventas['Cantidad'] < 0) & 
-                (df_ventas['Familia'] == 'GR.ART.FICTICIO')
-            ]
-            total_articulos_ficticios = abs(articulos_ficticios['Beneficio'].sum())
+            # 6. TASA DE DEVOLUCIÓN: Devoluciones / Ventas netas * 100
+            tasa_devolucion = (devoluciones / ventas_netas * 100) if ventas_netas > 0 else 0
             
-            # 6. TOTAL NETO (ventas - devoluciones reales)
-            total_neto = total_ventas_dinero - total_devoluciones_reales
-            
-            # 7. FAMILIAS REALES (excluyendo GR.ART.FICTICIO)
+            # 7. FAMILIAS (excluyendo GR.ART.FICTICIO)
             familias_reales = df_ventas[df_ventas['Familia'] != 'GR.ART.FICTICIO']['Familia'].nunique()
             
-            # 8. TASA DE DEVOLUCIÓN REAL
-            tasa_devolucion_real = (total_devoluciones_reales / total_ventas_dinero) * 100 if total_ventas_dinero > 0 else 0
+            # 8. TOTAL NETO: Ventas netas - Devoluciones
+            total_neto = ventas_netas - devoluciones
             
-            total_familias = familias_reales  # Usar familias reales en lugar de todas
+            # 9. CONTAR TIENDAS
+            tiendas_fisicas_count = df_ventas[
+                (df_ventas['Cantidad'] > 0) & 
+                (~df_ventas['Tienda'].isin(tiendas_online_list))
+            ]['Tienda'].nunique()
             
-            # Separar tiendas físicas y online (solo ventas positivas)
-            # Usar 'Tienda' (renombrada desde 'NombreTPV') para identificar tiendas online
-            tiendas_online_mask = df_ventas['Tienda'].str.contains('ONLINE', case=False, na=False)
-            ventas_fisicas = df_ventas[(~tiendas_online_mask) & (df_ventas['Cantidad'] > 0)]
-            ventas_online = df_ventas[(tiendas_online_mask) & (df_ventas['Cantidad'] > 0)]
-            
-            # Calcular KPIs por tipo de tienda (solo ventas reales, no devoluciones)
-            ventas_fisicas_dinero = ventas_fisicas['Beneficio'].sum()
-            ventas_online_dinero = ventas_online['Beneficio'].sum()
-            tiendas_fisicas = ventas_fisicas['Código Tienda'].nunique()
-            tiendas_online = ventas_online['Código Tienda'].nunique()
+            tiendas_online_count = df_ventas[
+                (df_ventas['Cantidad'] > 0) & 
+                (df_ventas['Tienda'].isin(tiendas_online_list))
+            ]['Tienda'].nunique()
 
             # Los KPIs principales se muestran en las tarjetas de abajo
             # Sin información de debug adicional
@@ -433,11 +430,11 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                     </div>
                     <div style="display: flex; justify-content: space-between; gap: 15px;">
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Total Ventas Brutas</p>
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Ventas Brutas</p>
                             <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
                         </div>
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Devoluciones Reales</p>
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Devoluciones</p>
                             <p style="color: #dc2626; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
                         </div>
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
@@ -450,7 +447,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                         </div>
                     </div>
                 </div>
-            """.format(total_ventas_dinero, total_devoluciones_reales, total_neto, total_familias), unsafe_allow_html=True)
+            """.format(ventas_brutas, devoluciones, total_neto, familias_reales), unsafe_allow_html=True)
             
             # KPIs por Tipo de Tienda en una sola fila
             st.markdown("""
@@ -460,15 +457,15 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                     </div>
                     <div style="display: flex; justify-content: space-between; gap: 15px;">
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Tiendas Físicas</p>
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Nº Tiendas Físicas</p>
                             <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{}</p>
                         </div>
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Ventas Físicas</p>
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Ventas Tiendas Físicas</p>
                             <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
                         </div>
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Tiendas Online</p>
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Nº Tiendas Online</p>
                             <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{}</p>
                         </div>
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
@@ -477,7 +474,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                         </div>
                     </div>
                 </div>
-            """.format(tiendas_fisicas, ventas_fisicas_dinero, tiendas_online, ventas_online_dinero), unsafe_allow_html=True)
+            """.format(tiendas_fisicas_count, ventas_fisicas, tiendas_online_count, ventas_online), unsafe_allow_html=True)
             
             # KPI adicional: Tasa de Devolución
             st.markdown("""
@@ -504,7 +501,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                         </div>
                     </div>
                 </div>
-            """.format(tasa_devolucion_real, tiendas_fisicas + tiendas_online, total_neto), unsafe_allow_html=True)
+            """.format(tasa_devolucion, tiendas_fisicas_count + tiendas_online_count, total_neto), unsafe_allow_html=True)
             
            
             
