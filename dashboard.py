@@ -2281,73 +2281,134 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         with col5:
             viz_title("Mapa de Ventas - Italia")
             
+            # Identificar tiendas italianas de forma más robusta
+            # Buscar tiendas que contengan 'COIN' o que empiecen con 'I' (código de Italia)
+            tiendas_disponibles = df_ventas['Tienda'].dropna().unique()
+            tiendas_italianas = []
+            for tienda in tiendas_disponibles:
+                if 'COIN' in str(tienda) or str(tienda).startswith('I'):
+                    tiendas_italianas.append(tienda)
+            
             # Separar datos por país
-            df_italia = df_ventas[df_ventas['Tienda'].isin(TIENDAS_EXTRANJERAS)].copy()
+            df_italia = df_ventas[df_ventas['Tienda'].isin(tiendas_italianas)].copy()
             
-            # Procesar datos de Italia
-            df_italia['Ciudad'] = df_italia['Tienda'].str.extract(r'I\d{3}COIN([A-Z]+)', expand=False)
+            if not df_italia.empty:
+                # Crear un mapeo más robusto de tiendas a ciudades
+                mapeo_tienda_ciudad = {}
+                for tienda in tiendas_italianas:
+                    tienda_str = str(tienda).upper()
+                    
+                    # Mapeo directo por patrones específicos
+                    if 'BERGAMO' in tienda_str:
+                        mapeo_tienda_ciudad[tienda] = 'BERGAMO'
+                    elif 'VARESE' in tienda_str:
+                        mapeo_tienda_ciudad[tienda] = 'VARESE'
+                    elif 'BARICASAMASSIMA' in tienda_str or 'BARICASAMASSIMA' in tienda_str:
+                        mapeo_tienda_ciudad[tienda] = 'BARICASAMASSIMA'
+                    elif 'MILANO5GIORNATE' in tienda_str:
+                        mapeo_tienda_ciudad[tienda] = 'MILANO5GIORNATE'
+                    elif 'ROMACINECITTA' in tienda_str:
+                        mapeo_tienda_ciudad[tienda] = 'ROMACINECITTA'
+                    elif 'GENOVA' in tienda_str:
+                        mapeo_tienda_ciudad[tienda] = 'GENOVA'
+                    elif 'SASSARI' in tienda_str:
+                        mapeo_tienda_ciudad[tienda] = 'SASSARI'
+                    elif 'CATANIA' in tienda_str:
+                        mapeo_tienda_ciudad[tienda] = 'CATANIA'
+                    elif 'CAGLIARI' in tienda_str:
+                        mapeo_tienda_ciudad[tienda] = 'CAGLIARI'
+                    elif 'LECCE' in tienda_str:
+                        mapeo_tienda_ciudad[tienda] = 'LECCE'
+                    elif 'MILANOCANTORE' in tienda_str:
+                        mapeo_tienda_ciudad[tienda] = 'MILANOCANTORE'
+                    elif 'MESTRE' in tienda_str:
+                        mapeo_tienda_ciudad[tienda] = 'MESTRE'
+                    elif 'PADOVA' in tienda_str:
+                        mapeo_tienda_ciudad[tienda] = 'PADOVA'
+                    elif 'FIRENZE' in tienda_str:
+                        mapeo_tienda_ciudad[tienda] = 'FIRENZE'
+                    elif 'ROMASANGIOVANNI' in tienda_str:
+                        mapeo_tienda_ciudad[tienda] = 'ROMASANGIOVANNI'
+                    elif 'MILANO' in tienda_str:
+                        mapeo_tienda_ciudad[tienda] = 'MILANO'
+                    elif 'TRUCCOONLINEB2C' in tienda_str:
+                        mapeo_tienda_ciudad[tienda] = 'ONLINE'
+                    else:
+                        # Intentar extraer con regex como fallback
+                        ciudad_extraida = df_italia[df_italia['Tienda'] == tienda]['Tienda'].str.extract(r'I\d{3}COIN([A-Z]+)', expand=False).iloc[0]
+                        if pd.notna(ciudad_extraida):
+                            mapeo_tienda_ciudad[tienda] = ciudad_extraida
+                        else:
+                            # Usar el nombre de la tienda sin prefijos
+                            ciudad_limpia = tienda_str.replace('I301COIN', '').replace('I302COIN', '').replace('I303COIN', '').replace('I304COIN', '').replace('I305COIN', '').replace('I306COIN', '').replace('I309COIN', '').replace('I314COIN', '').replace('I315COIN', '').replace('I316COIN', '').replace('I317COIN', '').replace('I318COIN', '').replace('I319COIN', '').replace('I320COIN', '').replace('I321COIN', '').replace('(TRUCCO)', '').replace('TRUCCOONLINEB2C', 'ONLINE')
+                            mapeo_tienda_ciudad[tienda] = ciudad_limpia
+                
+                # Aplicar el mapeo
+                df_italia['Ciudad'] = df_italia['Tienda'].map(mapeo_tienda_ciudad)
 
-            coordenadas_italia = {
-                'BERGAMO': (45.6983, 9.6773),
-                'VARESE': (45.8206, 8.8256),
-                'BARICASAMASSIMA': (40.9634, 16.7514),
-                'MILANO5GIORNATE': (45.4642, 9.1900),
-                'ROMACINECITTA': (41.9028, 12.4964),
-                'GENOVA': (44.4056, 8.9463),
-                'SASSARI': (40.7259, 8.5557),
-                'CATANIA': (37.5079, 15.0830),
-                'CAGLIARI': (39.2238, 9.1217),
-                'LECCE': (40.3519, 18.1720),
-                'MILANOCANTORE': (45.4642, 9.1900),
-                'MESTRE': (45.4903, 12.2424),
-                'PADOVA': (45.4064, 11.8768),
-                'FIRENZE': (43.7696, 11.2558),
-                'ROMASANGIOVANNI': (41.9028, 12.4964),
-                'MILANO': (45.4642, 9.1900)
-            }
+                coordenadas_italia = {
+                    'BERGAMO': (45.6983, 9.6773),
+                    'VARESE': (45.8206, 8.8256),
+                    'BARICASAMASSIMA': (40.9634, 16.7514),
+                    'MILANO5GIORNATE': (45.4642, 9.1900),
+                    'ROMACINECITTA': (41.9028, 12.4964),
+                    'GENOVA': (44.4056, 8.9463),
+                    'SASSARI': (40.7259, 8.5557),
+                    'CATANIA': (37.5079, 15.0830),
+                    'CAGLIARI': (39.2238, 9.1217),
+                    'LECCE': (40.3519, 18.1720),
+                    'MILANOCANTORE': (45.4642, 9.1900),
+                    'MESTRE': (45.4903, 12.2424),
+                    'PADOVA': (45.4064, 11.8768),
+                    'FIRENZE': (43.7696, 11.2558),
+                    'ROMASANGIOVANNI': (41.9028, 12.4964),
+                    'MILANO': (45.4642, 9.1900),
+                    'ONLINE': (41.9028, 12.4964)  # Coordenadas de Roma para online
+                }
 
-            # Procesar datos para Italia
-            df_italia['lat'] = df_italia['Ciudad'].map(lambda c: coordenadas_italia.get(c, (None, None))[0])
-            df_italia['lon'] = df_italia['Ciudad'].map(lambda c: coordenadas_italia.get(c, (None, None))[1])
-            df_italia = df_italia.dropna(subset=['lat', 'lon'])
+                # Procesar datos para Italia
+                df_italia['lat'] = df_italia['Ciudad'].map(lambda c: coordenadas_italia.get(c, (None, None))[0])
+                df_italia['lon'] = df_italia['Ciudad'].map(lambda c: coordenadas_italia.get(c, (None, None))[1])
+                df_italia = df_italia.dropna(subset=['lat', 'lon'])
 
-            # Agrupar por ciudad incluyendo tanto cantidad como ventas en euros
-            ventas_ciudad_italia = df_italia.groupby(['Ciudad', 'lat', 'lon']).agg({
-                'Cantidad': 'sum',
-                'Beneficio': 'sum'
-            }).reset_index()
-            
-            # --- FIX: asegurar que 'Cantidad' no tenga valores negativos ni NaN para el mapa de Italia ---
-            ventas_ciudad_italia['Cantidad'] = pd.to_numeric(ventas_ciudad_italia['Cantidad'], errors='coerce').fillna(0)
-            ventas_ciudad_italia['Cantidad'] = ventas_ciudad_italia['Cantidad'].clip(lower=0)
-            # --- FIN FIX ---
-            
-            if not ventas_ciudad_italia.empty:
-                fig_italia = px.scatter_mapbox(
-                    ventas_ciudad_italia,
-                    lat='lat',
-                    lon='lon',
-                    size='Cantidad',
-                    color='Cantidad',
-                    hover_name='Ciudad',
-                    hover_data={'Cantidad': True, 'Beneficio': True},
-                    color_continuous_scale='Plasma',
-                    zoom=5,
-                    height=400,
-                    title="Italia - Ventas por Ciudad"
-                )
-                fig_italia.update_layout(
-                    mapbox_style='open-street-map',
-                    margin=dict(t=30, b=0, l=0, r=0),
-                    paper_bgcolor="rgba(0,0,0,0)"
-                )
-                st.plotly_chart(fig_italia, use_container_width=True)
+                # Agrupar por ciudad incluyendo tanto cantidad como ventas en euros
+                ventas_ciudad_italia = df_italia.groupby(['Ciudad', 'lat', 'lon']).agg({
+                    'Cantidad': 'sum',
+                    'Beneficio': 'sum'
+                }).reset_index()
+                
+                # Asegurar que 'Cantidad' no tenga valores negativos ni NaN para el mapa de Italia
+                ventas_ciudad_italia['Cantidad'] = pd.to_numeric(ventas_ciudad_italia['Cantidad'], errors='coerce').fillna(0)
+                ventas_ciudad_italia['Cantidad'] = ventas_ciudad_italia['Cantidad'].clip(lower=0)
+                
+                if not ventas_ciudad_italia.empty:
+                    fig_italia = px.scatter_mapbox(
+                        ventas_ciudad_italia,
+                        lat='lat',
+                        lon='lon',
+                        size='Cantidad',
+                        color='Cantidad',
+                        hover_name='Ciudad',
+                        hover_data={'Cantidad': True, 'Beneficio': True},
+                        color_continuous_scale='Plasma',
+                        zoom=5,
+                        height=400,
+                        title="Italia - Ventas por Ciudad"
+                    )
+                    fig_italia.update_layout(
+                        mapbox_style='open-street-map',
+                        margin=dict(t=30, b=0, l=0, r=0),
+                        paper_bgcolor="rgba(0,0,0,0)"
+                    )
+                    st.plotly_chart(fig_italia, use_container_width=True)
+                else:
+                    st.info("No hay datos geográficos disponibles para mostrar el mapa de Italia.")
             else:
                 st.info("No hay datos disponibles para Italia.")
         
         with col6:
             # Tabla de tiendas por ciudad - Italia
-            if not ventas_ciudad_italia.empty:
+            if not df_italia.empty and 'ventas_ciudad_italia' in locals() and not ventas_ciudad_italia.empty:
                 st.write("**Tiendas por Ciudad - Italia**")
                 
                 # Mostrar tabla resumida por ciudad con cantidad y euros
@@ -2359,8 +2420,19 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                     }),
                     use_container_width=True
                 )
-                
-                
+            elif not df_italia.empty:
+                st.write("**Tiendas Italianas Encontradas**")
+                st.caption("Se encontraron tiendas italianas pero no se pudieron mapear a coordenadas.")
+                st.dataframe(
+                    df_italia[['Tienda', 'Cantidad', 'Beneficio']].groupby('Tienda').agg({
+                        'Cantidad': 'sum',
+                        'Beneficio': 'sum'
+                    }).reset_index().style.format({
+                        'Cantidad': '{:,.0f}',
+                        'Beneficio': '{:,.2f}€'
+                    }),
+                    use_container_width=True
+                )
             else:
                 st.info("No hay datos disponibles para Italia.")
 
@@ -2911,6 +2983,12 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         df_ventas_filtrado = df_ventas.copy()
         if familia_seleccionada != "Todas las familias":
             df_ventas_filtrado = df_ventas_filtrado[df_ventas_filtrado[columna_familia] == familia_seleccionada]
+        
+        # Filtrar productos ficticios (GR.ART.FICTICIO)
+        df_ventas_filtrado = df_ventas_filtrado[df_ventas_filtrado[columna_familia] != 'GR.ART.FICTICIO']
+        
+        # Mostrar información sobre el filtrado
+        st.caption("ℹ️ Los productos ficticios (GR.ART.FICTICIO) han sido excluidos del análisis")
         
         # Preparar datos
         df_ventas_filtrado['Código único'] = df_ventas_filtrado['Código único'].astype(str).str.strip()
