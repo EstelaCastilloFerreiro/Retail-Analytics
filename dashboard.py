@@ -374,38 +374,45 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             ventas_positivas = df_ventas[df_ventas['Cantidad'] > 0]
             total_ventas_dinero = ventas_positivas['Beneficio'].sum()
             
-            # 2. DEVOLUCIONES REALES (cantidad = -1, excluyendo GR.ART.FICTICIO)
+            # 2. TODAS LAS DEVOLUCIONES (todos los registros negativos, como en Excel)
+            todas_devoluciones = df_ventas[df_ventas['Cantidad'] < 0]
+            total_todas_devoluciones = abs(todas_devoluciones['Beneficio'].sum())
+            
+            # 3. DEVOLUCIONES REALES (cantidad = -1, excluyendo GR.ART.FICTICIO)
             devoluciones_reales = df_ventas[
                 (df_ventas['Cantidad'] == -1) & 
                 (df_ventas['Familia'] != 'GR.ART.FICTICIO')
             ]
             total_devoluciones_reales = abs(devoluciones_reales['Beneficio'].sum())
             
-            # 3. AJUSTES DE STOCK (cantidad = -2 a -10)
+            # 4. AJUSTES DE STOCK (cantidad = -2 a -10)
             ajustes_stock = df_ventas[
                 (df_ventas['Cantidad'] >= -10) & 
                 (df_ventas['Cantidad'] <= -2)
             ]
             total_ajustes_stock = abs(ajustes_stock['Beneficio'].sum())
             
-            # 4. TRANSFERENCIAS (cantidad < -10)
+            # 5. TRANSFERENCIAS (cantidad < -10)
             transferencias = df_ventas[df_ventas['Cantidad'] < -10]
             total_transferencias = abs(transferencias['Beneficio'].sum())
             
-            # 5. ARTÍCULOS FICTICIOS (GR.ART.FICTICIO con cantidad negativa)
+            # 6. ARTÍCULOS FICTICIOS (GR.ART.FICTICIO con cantidad negativa)
             articulos_ficticios = df_ventas[
                 (df_ventas['Cantidad'] < 0) & 
                 (df_ventas['Familia'] == 'GR.ART.FICTICIO')
             ]
             total_articulos_ficticios = abs(articulos_ficticios['Beneficio'].sum())
             
-            # 6. TOTAL NETO (ventas - devoluciones reales)
-            total_neto = total_ventas_dinero - total_devoluciones_reales
+            # 7. TOTAL NETO (ventas - todas las devoluciones, como en Excel)
+            total_neto = total_ventas_dinero - total_todas_devoluciones
             
-            # 7. FAMILIAS REALES (excluyendo GR.ART.FICTICIO)
+            # 8. FAMILIAS REALES (excluyendo GR.ART.FICTICIO)
             familias_reales = df_ventas[df_ventas['Familia'] != 'GR.ART.FICTICIO']['Familia'].nunique()
             
-            # 8. TASA DE DEVOLUCIÓN REAL
+            # 9. TASA DE DEVOLUCIÓN TOTAL (como en Excel)
+            tasa_devolucion_total = (total_todas_devoluciones / total_ventas_dinero) * 100 if total_ventas_dinero > 0 else 0
+            
+            # 10. TASA DE DEVOLUCIÓN REAL (solo cantidad = -1)
             tasa_devolucion_real = (total_devoluciones_reales / total_ventas_dinero) * 100 if total_ventas_dinero > 0 else 0
             
             total_familias = familias_reales  # Usar familias reales en lugar de todas
@@ -437,7 +444,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                             <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
                         </div>
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Devoluciones Reales</p>
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Todas Devoluciones</p>
                             <p style="color: #dc2626; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
                         </div>
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
@@ -450,7 +457,21 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                         </div>
                     </div>
                 </div>
-            """.format(total_ventas_dinero, total_devoluciones_reales, total_neto, total_familias), unsafe_allow_html=True)
+            """.format(total_ventas_dinero, total_todas_devoluciones, total_neto, total_familias), unsafe_allow_html=True)
+            
+            # Explicación del cálculo de la tasa de devolución
+            st.info(f"""
+            **📊 Cálculo de la Tasa de Devolución:**
+            
+            • **Tasa Total (como en Excel):** {tasa_devolucion_total:.1f}%
+            • **Fórmula:** (Todas Devoluciones ÷ Total Ventas Brutas) × 100
+            • **Base:** Todos los registros negativos (cantidad < 0)
+            • **Incluye:** Devoluciones reales, ajustes de stock, transferencias y artículos ficticios
+            
+            • **Tasa Real (solo devoluciones):** {tasa_devolucion_real:.1f}%
+            • **Fórmula:** (Devoluciones Reales ÷ Total Ventas Brutas) × 100
+            • **Base:** Solo registros con cantidad = -1 (excluyendo GR.ART.FICTICIO)
+            """)
             
             # KPIs por Tipo de Tienda en una sola fila
             st.markdown("""
@@ -504,7 +525,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                         </div>
                     </div>
                 </div>
-            """.format(tasa_devolucion_real, tiendas_fisicas + tiendas_online, total_neto), unsafe_allow_html=True)
+            """.format(tasa_devolucion_total, tiendas_fisicas + tiendas_online, total_neto), unsafe_allow_html=True)
             
            
             
@@ -1730,6 +1751,28 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                         .sort_values(['Mes', 'Talla'])
                     )
                     
+                    # Crear un DataFrame completo con todos los meses y tallas disponibles
+                    # para asegurar que aparezcan todos los meses, incluso con 0
+                    todos_meses = sorted(df_almacen_fam['Mes Entrada'].unique())
+                    todas_tallas = sorted(df_almacen_fam['Talla'].unique(), key=custom_sort_key)
+                    
+                    # Crear un DataFrame completo con todas las combinaciones
+                    from itertools import product
+                    combinaciones_completas = pd.DataFrame(
+                        list(product(todos_meses, todas_tallas)),
+                        columns=['Mes', 'Talla']
+                    )
+                    
+                    # Unir con los datos reales, manteniendo todas las combinaciones
+                    datos_pedida = combinaciones_completas.merge(
+                        datos_pedida, 
+                        on=['Mes', 'Talla'], 
+                        how='left'
+                    ).fillna(0)
+                    
+                    # Ordenar por mes y talla
+                    datos_pedida = datos_pedida.sort_values(['Mes', 'Talla'])
+                    
                     # Aplicar filtro según la opción del usuario
                     if not mostrar_todos_meses:
                         # Filtrar datos hasta el último mes de ventas
@@ -1766,6 +1809,10 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                         # Mostrar total
                         total_pedida = tabla_pedida_pivot.sum().sum()
                         st.write(f"**Total Cantidad Pedida:** {total_pedida:,.0f}")
+                        
+                        # Mostrar información sobre los meses mostrados
+                        meses_total = len(tabla_pedida_pivot)
+                        st.caption(f"ℹ️ Mostrando {meses_total} meses (incluyendo meses con 0)")
                     else:
                         st.info("No hay datos de cantidad pedida disponibles para el período seleccionado.")
                 else:
