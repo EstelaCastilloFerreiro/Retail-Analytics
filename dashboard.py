@@ -46,6 +46,14 @@ TIENDAS_EXTRANJERAS = [
     "TRUCCOONLINEB2C"
 ]
 
+tiendas_a_eliminar = [
+    "COMODIN",
+    "ECI NAELLE ONLINE",
+    "NAELLE ONLINE B2C",
+    "R998- PILOTO",
+    "ECI ONLINE GESTION",
+    "W001 DEVOLUCIONES WEB (NO ENVIAR TRASP)"
+]
 COL_ONLINE = '#2ca02c'   # verde fuerte
 COL_OTRAS = '#ff7f0e'    # naranja
 
@@ -329,17 +337,18 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
     df_productos = preprocess_productos_data(df_productos)
     df_traspasos = preprocess_traspasos_data(df_traspasos)
     
+
     # Merge Precio Coste from df_productos into df_ventas using Código único
-    df_ventas = df_ventas.merge(
+    df_ventas_precios = df_ventas.merge(
         df_productos[['Código único', 'Precio Coste']],
         on='Código único',
         how='left',
         suffixes=('', '_producto')
     )
     # Prefer Precio Coste from df_productos if available
-    if 'Precio Coste_producto' in df_ventas.columns:
-        df_ventas['Precio Coste'] = df_ventas['Precio Coste_producto'].combine_first(df_ventas['Precio Coste'])
-        df_ventas = df_ventas.drop(columns=['Precio Coste_producto'])
+    if 'Precio Coste_producto' in df_ventas_precios.columns:
+        df_ventas_precios['Precio Coste'] = df_ventas_precios['Precio Coste_producto'].combine_first(df_ventas_precios['Precio Coste'])
+        df_ventas_precios = df_ventas_precios.drop(columns=['Precio Coste_producto'])
 
    
     # Calcular ranking completo de todas las tiendas ANTES de aplicar filtros
@@ -367,11 +376,25 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
 
     if seccion == "Resumen General":
         try:
-            # Calcular KPIs separando GR.ART.FICTICIO del resto
-            
-            # 1. KPIs EXCLUYENDO GR.ART.FICTICIO
+            # Mostrar estadísticas adicionales optimizadas
+            st.info(f" Este análisis no considera las tiendas {tiendas_a_eliminar}, con el objetivo de optimizar la calidad de los resultados.")
+            # Qué tiene el análisis general
             df_ventas_reales = df_ventas[df_ventas['Familia'] != 'GR.ART.FICTICIO']
-            
+            # Número familias únicas
+            num_familias_reales = df_ventas_reales['Familia'].nunique()
+
+            # Número tiendas únicas
+            num_tiendas_reales = df_ventas_reales['Tienda'].nunique()
+
+            # Número temporadas únicas 
+            num_temporadas_reales = df_ventas_reales['Temporada'].nunique()
+
+            # Número transacciones
+            num_transacciones = len(df_ventas)
+
+            # Calcular KPIs separando GR.ART.FICTICIO del resto
+
+            # 1. KPIs EXCLUYENDO GR.ART.FICTICIO
             # Ventas brutas = devoluciones + ventas
             ventas_positivas_reales = df_ventas_reales[df_ventas_reales['Cantidad'] > 0]['Beneficio'].sum()
             devoluciones_reales = abs(df_ventas_reales[df_ventas_reales['Cantidad'] < 0]['Beneficio'].sum())
@@ -383,8 +406,6 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             # Tasa devolución = devoluciones / total neto
             tasa_devolucion_reales = (devoluciones_reales / total_neto_reales) * 100 if total_neto_reales > 0 else 0
             
-            # Número familias únicas
-            num_familias_reales = df_ventas_reales['Familia'].nunique()
             
             # 2. KPIs SOLO GR.ART.FICTICIO
             df_ventas_ficticio = df_ventas[df_ventas['Familia'] == 'GR.ART.FICTICIO']
@@ -423,6 +444,33 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             tiendas_fisicas_count = ventas_fisicas['Código Tienda'].nunique()
             tiendas_online_count = ventas_online['Código Tienda'].nunique()
             
+            # Alcance Análisis 
+            st.markdown("""
+                <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; background-color: white;">
+                    <div style="color: #666666; font-size: 16px; font-weight: 600; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e5e7eb;">
+                        Alcance del Análisis (Excluyendo GR.ART.FICTICIO)
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 15px;">
+                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Total Familias</p>
+                            <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{}</p>
+                        </div>
+                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Total Tiendas</p>
+                            <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{}</p>
+                        </div>
+                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Total Temporadas</p>
+                            <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{}</p>
+                        </div>
+                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Total Transacciones (Sin excluir GR.ART.FICTICIO)</p>
+                            <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{}</p>
+                        </div>
+                    </div>
+                </div>
+            """.format(num_familias_reales, num_tiendas_reales, num_temporadas_reales, num_transacciones), unsafe_allow_html=True)
+
             # KPIs Generales (excluyendo GR.ART.FICTICIO)
             st.markdown("""
                 <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; background-color: white;">
@@ -443,12 +491,12 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                             <p style="color: #059669; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
                         </div>
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Número Familias</p>
-                            <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{}</p>
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Tasa Devolución</p>
+                            <p style="color: #dc2626; font-size: 24px; font-weight: bold; margin: 0;">{:.1f}%</p>
                         </div>
                     </div>
                 </div>
-            """.format(total_ventas_brutas_reales, devoluciones_reales, total_neto_reales, num_familias_reales), unsafe_allow_html=True)
+            """.format(total_ventas_brutas_reales, devoluciones_reales, total_neto_reales, tasa_devolucion_reales), unsafe_allow_html=True)
             
             # KPIs GR.ART.FICTICIO
             st.markdown("""
@@ -466,16 +514,16 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                             <p style="color: #dc2626; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
                         </div>
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Tasa Devolución</p>
-                            <p style="color: #dc2626; font-size: 24px; font-weight: bold; margin: 0;">{:.1f}%</p>
-                        </div>
-                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
                             <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Total Neto</p>
                             <p style="color: #059669; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
                         </div>
+                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Tasa Devolución</p>
+                            <p style="color: #dc2626; font-size: 24px; font-weight: bold; margin: 0;">{:.1f}%</p>
+                        </div>
                     </div>
                 </div>
-            """.format(total_ventas_brutas_ficticio, devoluciones_ficticio, tasa_devolucion_ficticio, total_neto_ficticio), unsafe_allow_html=True)
+            """.format(total_ventas_brutas_ficticio, devoluciones_ficticio, total_neto_ficticio,tasa_devolucion_ficticio), unsafe_allow_html=True)
             
             # KPIs por Tipo de Tienda
             st.markdown("""
@@ -2586,8 +2634,8 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         # Margen bruto por unidad (promedio)
         margen_unitario_promedio = 0
         margen_unitario_promedio_positivo = 0
-        if all(col in df_ventas.columns for col in ['PVP', 'Precio Coste']):
-            df_ventas_temp = df_ventas.copy()
+        if all(col in df_ventas_precios.columns for col in ['PVP', 'Precio Coste']):
+            df_ventas_temp = df_ventas_precios.copy()
             df_ventas_temp['margen_unitario'] = df_ventas_temp['PVP'] - df_ventas_temp['Precio Coste']
             
             # Calcular promedios correctamente
@@ -2607,8 +2655,8 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         # Margen porcentual (promedio)
         margen_porcentual_promedio = 0
         margen_porcentual_promedio_positivo = 0
-        if all(col in df_ventas.columns for col in ['PVP', 'Precio Coste']):
-            df_ventas_temp = df_ventas.copy()
+        if all(col in df_ventas_precios.columns for col in ['PVP', 'Precio Coste']):
+            df_ventas_temp = df_ventas_precios.copy()
             df_ventas_temp['margen_unitario'] = df_ventas_temp['PVP'] - df_ventas_temp['Precio Coste']
             
             # Calcular margen porcentual correctamente
@@ -2680,24 +2728,14 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                 </div>
                 <div style="display: flex; justify-content: space-between; gap: 15px;">
                     <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                        <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Margen Unitario Promedio Solo Positivo</p>
+                        <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Margen Unitario Promedio</p>
                         <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{:.2f}€</p>
                         <p style="color: #059669; font-size: 12px; margin: 0;">por unidad (solo positivos)</p>
                     </div>
                     <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                        <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Margen % Promedio Solo Positivo</p>
+                        <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Margen % Promedio</p>
                         <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{:.1f}%</p>
                         <p style="color: #059669; font-size: 12px; margin: 0;">del PVP (solo positivos)</p>
-                    </div>
-                    <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                        <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Margen Unitario Promedio Real</p>
-                        <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{:.2f}€</p>
-                        <p style="color: #059669; font-size: 12px; margin: 0;">por unidad (real)</p>
-                    </div>
-                    <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                        <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Margen % Promedio Real</p>
-                        <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{:.1f}%</p>
-                        <p style="color: #059669; font-size: 12px; margin: 0;">del PVP (real)</p>
                     </div>
                 </div>
             </div>
@@ -2709,8 +2747,8 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         ), unsafe_allow_html=True)
 
         # Tabla de depuración: productos con margen negativo
-        if all(col in df_ventas.columns for col in ['PVP', 'Precio Coste']):
-            df_ventas_temp = df_ventas.copy()
+        if all(col in df_ventas_precios.columns for col in ['PVP', 'Precio Coste']):
+            df_ventas_temp = df_ventas_precios.copy()
             df_ventas_temp['margen_unitario'] = df_ventas_temp['PVP'] - df_ventas_temp['Precio Coste']
             productos_margen_negativo = df_ventas_temp[df_ventas_temp['margen_unitario'] < 0]
             if not productos_margen_negativo.empty:
@@ -2926,7 +2964,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         st.markdown("### **Productos con Bajo Margen**")
         
         # Buscar columnas que podrían ser Precio Coste
-        columnas_disponibles = df_ventas.columns.tolist()
+        columnas_disponibles = df_ventas_precios.columns.tolist()
         coste_col = None
         
         # Buscar Precio Coste
@@ -2935,7 +2973,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                 coste_col = col
                 break
         
-        if coste_col and 'Beneficio' in df_ventas.columns and 'Cantidad' in df_ventas.columns:
+        if coste_col and 'Beneficio' in df_ventas_precios.columns and 'Cantidad' in df_ventas_precios.columns:
             # Slider para ajustar el umbral de margen
             umbral_margen = st.slider(
                 "Umbral de margen % (productos por debajo de este valor):",
@@ -3218,6 +3256,9 @@ def preprocess_ventas_data(df_ventas):
         df_ventas['Es_Online'] = df_ventas['Tienda'].str.contains('ONLINE', case=False, na=False)
     else:
         df_ventas['Es_Online'] = False
+
+    #Eliminar tiendas problemáticas
+    df_ventas = df_ventas[~df_ventas["Tienda"].isin(tiendas_a_eliminar)]
     
     return df_ventas
 
