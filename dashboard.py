@@ -367,76 +367,67 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
 
     if seccion == "Resumen General":
         try:
-            # Calcular KPIs usando SOLO columnas que existen
-            # Separar transacciones por tipo para cálculos más precisos
+            # Calcular KPIs separando GR.ART.FICTICIO del resto
             
-            # 1. VENTAS REALES (cantidad > 0)
-            ventas_positivas = df_ventas[df_ventas['Cantidad'] > 0]
-            total_ventas_dinero = ventas_positivas['Beneficio'].sum()
+            # 1. KPIs EXCLUYENDO GR.ART.FICTICIO
+            df_ventas_reales = df_ventas[df_ventas['Familia'] != 'GR.ART.FICTICIO']
             
-            # 2. TODAS LAS DEVOLUCIONES (todos los registros negativos, como en Excel)
-            todas_devoluciones = df_ventas[df_ventas['Cantidad'] < 0]
-            total_todas_devoluciones = abs(todas_devoluciones['Beneficio'].sum())
+            # Ventas brutas = devoluciones + ventas
+            ventas_positivas_reales = df_ventas_reales[df_ventas_reales['Cantidad'] > 0]['Beneficio'].sum()
+            devoluciones_reales = abs(df_ventas_reales[df_ventas_reales['Cantidad'] < 0]['Beneficio'].sum())
+            total_ventas_brutas_reales = ventas_positivas_reales + devoluciones_reales
             
-            # 3. DEVOLUCIONES REALES (cantidad = -1, excluyendo GR.ART.FICTICIO)
-            devoluciones_reales = df_ventas[
-                (df_ventas['Cantidad'] == -1) & 
+            # Total neto = solo ventas positivas
+            total_neto_reales = ventas_positivas_reales
+            
+            # Tasa devolución = devoluciones / total neto
+            tasa_devolucion_reales = (devoluciones_reales / total_neto_reales) * 100 if total_neto_reales > 0 else 0
+            
+            # Número familias únicas
+            num_familias_reales = df_ventas_reales['Familia'].nunique()
+            
+            # 2. KPIs SOLO GR.ART.FICTICIO
+            df_ventas_ficticio = df_ventas[df_ventas['Familia'] == 'GR.ART.FICTICIO']
+            
+            ventas_positivas_ficticio = df_ventas_ficticio[df_ventas_ficticio['Cantidad'] > 0]['Beneficio'].sum()
+            devoluciones_ficticio = abs(df_ventas_ficticio[df_ventas_ficticio['Cantidad'] < 0]['Beneficio'].sum())
+            total_ventas_brutas_ficticio = ventas_positivas_ficticio + devoluciones_ficticio
+            total_neto_ficticio = ventas_positivas_ficticio
+            tasa_devolucion_ficticio = (devoluciones_ficticio / total_neto_ficticio) * 100 if total_neto_ficticio > 0 else 0
+            
+            # 3. ANÁLISIS POR TIPO DE TIENDA (excluyendo GR.ART.FICTICIO)
+            # Definir tiendas online específicas
+            tiendas_online_list = [
+                'ECI NAELLE ONLINE',
+                'ECI ONLINE GESTION', 
+                'ET0N ECI ONLINE',
+                'NAELLE ONLINE B2C',
+                'OUTLET TRUCCO ONLINE B2O',
+                'TRUCCO ONLINE B2C'
+            ]
+            
+            # Filtrar solo ventas positivas y excluir GR.ART.FICTICIO
+            df_ventas_analisis = df_ventas[
+                (df_ventas['Cantidad'] > 0) & 
                 (df_ventas['Familia'] != 'GR.ART.FICTICIO')
             ]
-            total_devoluciones_reales = abs(devoluciones_reales['Beneficio'].sum())
             
-            # 4. AJUSTES DE STOCK (cantidad = -2 a -10)
-            ajustes_stock = df_ventas[
-                (df_ventas['Cantidad'] >= -10) & 
-                (df_ventas['Cantidad'] <= -2)
-            ]
-            total_ajustes_stock = abs(ajustes_stock['Beneficio'].sum())
+            # Identificar tiendas online vs físicas
+            tiendas_online_mask = df_ventas_analisis['Tienda'].isin(tiendas_online_list)
+            ventas_fisicas = df_ventas_analisis[~tiendas_online_mask]
+            ventas_online = df_ventas_analisis[tiendas_online_mask]
             
-            # 5. TRANSFERENCIAS (cantidad < -10)
-            transferencias = df_ventas[df_ventas['Cantidad'] < -10]
-            total_transferencias = abs(transferencias['Beneficio'].sum())
-            
-            # 6. ARTÍCULOS FICTICIOS (GR.ART.FICTICIO con cantidad negativa)
-            articulos_ficticios = df_ventas[
-                (df_ventas['Cantidad'] < 0) & 
-                (df_ventas['Familia'] == 'GR.ART.FICTICIO')
-            ]
-            total_articulos_ficticios = abs(articulos_ficticios['Beneficio'].sum())
-            
-            # 7. TOTAL NETO (ventas - todas las devoluciones, como en Excel)
-            total_neto = total_ventas_dinero - total_todas_devoluciones
-            
-            # 8. FAMILIAS REALES (excluyendo GR.ART.FICTICIO)
-            familias_reales = df_ventas[df_ventas['Familia'] != 'GR.ART.FICTICIO']['Familia'].nunique()
-            
-            # 9. TASA DE DEVOLUCIÓN TOTAL (como en Excel)
-            tasa_devolucion_total = (total_todas_devoluciones / total_ventas_dinero) * 100 if total_ventas_dinero > 0 else 0
-            
-            # 10. TASA DE DEVOLUCIÓN REAL (solo cantidad = -1)
-            tasa_devolucion_real = (total_devoluciones_reales / total_ventas_dinero) * 100 if total_ventas_dinero > 0 else 0
-            
-            total_familias = familias_reales  # Usar familias reales en lugar de todas
-            
-            # Separar tiendas físicas y online (solo ventas positivas)
-            # Usar 'Tienda' (renombrada desde 'NombreTPV') para identificar tiendas online
-            tiendas_online_mask = df_ventas['Tienda'].str.contains('ONLINE', case=False, na=False)
-            ventas_fisicas = df_ventas[(~tiendas_online_mask) & (df_ventas['Cantidad'] > 0)]
-            ventas_online = df_ventas[(tiendas_online_mask) & (df_ventas['Cantidad'] > 0)]
-            
-            # Calcular KPIs por tipo de tienda (solo ventas reales, no devoluciones)
+            # Calcular KPIs por tipo de tienda
             ventas_fisicas_dinero = ventas_fisicas['Beneficio'].sum()
             ventas_online_dinero = ventas_online['Beneficio'].sum()
-            tiendas_fisicas = ventas_fisicas['Código Tienda'].nunique()
-            tiendas_online = ventas_online['Código Tienda'].nunique()
-
-            # Los KPIs principales se muestran en las tarjetas de abajo
-            # Sin información de debug adicional
+            tiendas_fisicas_count = ventas_fisicas['Código Tienda'].nunique()
+            tiendas_online_count = ventas_online['Código Tienda'].nunique()
             
-            # KPIs Generales en una sola fila
+            # KPIs Generales (excluyendo GR.ART.FICTICIO)
             st.markdown("""
                 <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; background-color: white;">
                     <div style="color: #666666; font-size: 16px; font-weight: 600; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e5e7eb;">
-                        KPIs Generales
+                        KPIs Generales (Excluyendo GR.ART.FICTICIO)
                     </div>
                     <div style="display: flex; justify-content: space-between; gap: 15px;">
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
@@ -444,7 +435,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                             <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
                         </div>
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Todas Devoluciones</p>
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Devoluciones Reales</p>
                             <p style="color: #dc2626; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
                         </div>
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
@@ -457,27 +448,40 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                         </div>
                     </div>
                 </div>
-            """.format(total_ventas_dinero, total_todas_devoluciones, total_neto, total_familias), unsafe_allow_html=True)
+            """.format(total_ventas_brutas_reales, devoluciones_reales, total_neto_reales, num_familias_reales), unsafe_allow_html=True)
             
-            # Explicación del cálculo de la tasa de devolución
-            st.info(f"""
-            **📊 Cálculo de la Tasa de Devolución:**
-            
-            • **Tasa Total (como en Excel):** {tasa_devolucion_total:.1f}%
-            • **Fórmula:** (Todas Devoluciones ÷ Total Ventas Brutas) × 100
-            • **Base:** Todos los registros negativos (cantidad < 0)
-            • **Incluye:** Devoluciones reales, ajustes de stock, transferencias y artículos ficticios
-            
-            • **Tasa Real (solo devoluciones):** {tasa_devolucion_real:.1f}%
-            • **Fórmula:** (Devoluciones Reales ÷ Total Ventas Brutas) × 100
-            • **Base:** Solo registros con cantidad = -1 (excluyendo GR.ART.FICTICIO)
-            """)
-            
-            # KPIs por Tipo de Tienda en una sola fila
+            # KPIs GR.ART.FICTICIO
             st.markdown("""
                 <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; background-color: white;">
                     <div style="color: #666666; font-size: 16px; font-weight: 600; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e5e7eb;">
-                        KPIs por Tipo de Tienda
+                        KPIs GR.ART.FICTICIO
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 15px;">
+                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Total Ventas Brutas</p>
+                            <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
+                        </div>
+                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Devoluciones</p>
+                            <p style="color: #dc2626; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
+                        </div>
+                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Tasa Devolución</p>
+                            <p style="color: #dc2626; font-size: 24px; font-weight: bold; margin: 0;">{:.1f}%</p>
+                        </div>
+                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Total Neto</p>
+                            <p style="color: #059669; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
+                        </div>
+                    </div>
+                </div>
+            """.format(total_ventas_brutas_ficticio, devoluciones_ficticio, tasa_devolucion_ficticio, total_neto_ficticio), unsafe_allow_html=True)
+            
+            # KPIs por Tipo de Tienda
+            st.markdown("""
+                <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; background-color: white;">
+                    <div style="color: #666666; font-size: 16px; font-weight: 600; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e5e7eb;">
+                        KPIs por Tipo de Tienda (Excluyendo GR.ART.FICTICIO)
                     </div>
                     <div style="display: flex; justify-content: space-between; gap: 15px;">
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
@@ -485,7 +489,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                             <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{}</p>
                         </div>
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Ventas Físicas</p>
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Ventas Netas Físicas</p>
                             <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
                         </div>
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
@@ -493,39 +497,12 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                             <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{}</p>
                         </div>
                         <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Ventas Online</p>
+                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Ventas Netas Online</p>
                             <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
                         </div>
                     </div>
                 </div>
-            """.format(tiendas_fisicas, ventas_fisicas_dinero, tiendas_online, ventas_online_dinero), unsafe_allow_html=True)
-            
-            # KPI adicional: Tasa de Devolución
-            st.markdown("""
-                <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; background-color: white;">
-                    <div style="color: #666666; font-size: 16px; font-weight: 600; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e5e7eb;">
-                        Indicadores de Calidad
-                    </div>
-                    <div style="display: flex; justify-content: space-between; gap: 15px;">
-                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Tasa Devolución</p>
-                            <p style="color: #dc2626; font-size: 24px; font-weight: bold; margin: 0;">{:.1f}%</p>
-                        </div>
-                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Total Tiendas</p>
-                            <p style="color: #111827; font-size: 24px; font-weight: bold; margin: 0;">{}</p>
-                        </div>
-                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Total Neto</p>
-                            <p style="color: #059669; font-size: 24px; font-weight: bold; margin: 0;">{:,.0f}€</p>
-                        </div>
-                        <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                            <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Estado</p>
-                            <p style="color: #059669; font-size: 18px; font-weight: bold; margin: 0;">✅ Correcto</p>
-                        </div>
-                    </div>
-                </div>
-            """.format(tasa_devolucion_total, tiendas_fisicas + tiendas_online, total_neto), unsafe_allow_html=True)
+            """.format(tiendas_fisicas_count, ventas_fisicas_dinero, tiendas_online_count, ventas_online_dinero), unsafe_allow_html=True)
             
            
             
@@ -3042,32 +3019,30 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
     elif seccion == "Análisis con fotos":
         st.markdown("## 📸 **Análisis con Fotos**")
         
+        # Filtrar out GR.ART.FICTICIO entries first
+        df_ventas_sin_ficticio = df_ventas[df_ventas['Familia'] != "GR.ART.FICTICIO"].copy()
+        
         # Filtro por familia
         st.markdown("### 🔍 **Filtro por Familia**")
-        columna_familia = "Familia" if "Familia" in df_ventas.columns else "Descripción Familia"
-        familias_disponibles = df_ventas[columna_familia].dropna().unique().tolist()
+        familia = "Familia" if "Familia" in df_ventas.columns else "Descripción Familia"
+        familias_disponibles = df_ventas_sin_ficticio['Familia'].dropna().unique().tolist()
         familias_disponibles.sort()
         familias_opciones = ["Todas las familias"] + familias_disponibles
         familia_seleccionada = st.selectbox("Seleccione por familia:", familias_opciones)
         
         # Aplicar filtro
-        df_ventas_filtrado = df_ventas.copy()
+        df_ventas_filtrado = df_ventas_sin_ficticio.copy()
         if familia_seleccionada != "Todas las familias":
-            df_ventas_filtrado = df_ventas_filtrado[df_ventas_filtrado[columna_familia] == familia_seleccionada]
+            df_ventas_filtrado = df_ventas_filtrado[df_ventas_filtrado['Familia'] == familia_seleccionada]
         
-        # Filtrar productos ficticios (GR.ART.FICTICIO)
-        df_ventas_filtrado = df_ventas_filtrado[df_ventas_filtrado[columna_familia] != 'GR.ART.FICTICIO']
-        
-        # Mostrar información sobre el filtrado
-        st.caption("ℹ️ Los productos ficticios (GR.ART.FICTICIO) han sido excluidos del análisis")
-        
-        # Preparar datos
+        # Preparar datos - agrupar por código sin el último carácter (talla)
         df_ventas_filtrado['Código único'] = df_ventas_filtrado['Código único'].astype(str).str.strip()
+        df_ventas_filtrado['Código base'] = df_ventas_filtrado['Código único'].str[:-1]  # Excluir último carácter (talla)
         
         # Top 20 productos más vendidos
         st.markdown("### 📈 **Top 20 Productos Más Vendidos**")
         if len(df_ventas_filtrado) > 0:
-            top_ventas = df_ventas_filtrado.groupby(['Código único', 'Familia']).agg({
+            top_ventas = df_ventas_filtrado.groupby(['Código base', 'Familia']).agg({
                 'Cantidad': 'sum',
                 'url_image': 'first'
             }).reset_index()
@@ -3077,13 +3052,24 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                 for idx, row in top_ventas.iterrows():
                     col1, col2 = st.columns([4, 1])
                     with col1:
-                        st.write(f"**{row['Código único']}** - {row['Familia']} - **{row['Cantidad']} unidades**")
+                        st.write(f"**{row['Código base']}** - {row['Familia']} - **{row['Cantidad']} unidades**")
                     with col2:
                         if 'url_image' in row and pd.notna(row['url_image']):
                             imagen_url = str(row['url_image']).strip()
                             if imagen_url and imagen_url != 'nan':
                                 if st.button("📸 Foto", key=f"foto_ventas_{idx}"):
-                                    st.markdown(f"[🔗 Abrir imagen en nueva pestaña]({imagen_url})")
+                                    try:
+                                        # Clean the URL - remove @ if present and ensure it's a valid URL
+                                        clean_url = imagen_url.lstrip('@') if imagen_url.startswith('@') else imagen_url
+                                        
+                                        # Display the image directly
+                                        st.image(clean_url, caption="Imagen del producto", width=200)
+                                        # Link to open in new tab
+                                        st.markdown(f"[🔗 Abrir imagen en nueva pestaña]({clean_url})")
+                                    except Exception as e:
+                                        # Fallback to just the link if image loading fails
+                                        st.error(f"No se pudo cargar la imagen: {e}")
+                                        st.markdown(f"[🔗 Abrir imagen en nueva pestaña]({imagen_url})")
                             else:
                                 st.write("📷 Sin imagen")
                         else:
@@ -3096,7 +3082,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         # Top 20 productos menos vendidos
         st.markdown("### 📉 **Top 20 Productos Menos Vendidos**")
         if len(df_ventas_filtrado) > 0:
-            menos_ventas = df_ventas_filtrado.groupby(['Código único', 'Familia']).agg({
+            menos_ventas = df_ventas_filtrado.groupby(['Código base', 'Familia']).agg({
                 'Cantidad': 'sum',
                 'url_image': 'first'
             }).reset_index()
@@ -3106,13 +3092,24 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                 for idx, row in menos_ventas.iterrows():
                     col1, col2 = st.columns([4, 1])
                     with col1:
-                        st.write(f"**{row['Código único']}** - {row['Familia']} - **{row['Cantidad']} unidades**")
+                        st.write(f"**{row['Código base']}** - {row['Familia']} - **{row['Cantidad']} unidades**")
                     with col2:
                         if 'url_image' in row and pd.notna(row['url_image']):
                             imagen_url = str(row['url_image']).strip()
                             if imagen_url and imagen_url != 'nan':
                                 if st.button("📸 Foto", key=f"foto_menos_ventas_{idx}"):
-                                    st.markdown(f"[🔗 Abrir imagen en nueva pestaña]({imagen_url})")
+                                    try:
+                                        # Clean the URL - remove @ if present and ensure it's a valid URL
+                                        clean_url = imagen_url.lstrip('@') if imagen_url.startswith('@') else imagen_url
+                                        
+                                        # Display the image directly
+                                        st.image(clean_url, caption="Imagen del producto", width=200)
+                                        # Link to open in new tab
+                                        st.markdown(f"[🔗 Abrir imagen en nueva pestaña]({clean_url})")
+                                    except Exception as e:
+                                        # Fallback to just the link if image loading fails
+                                        st.error(f"No se pudo cargar la imagen: {e}")
+                                        st.markdown(f"[🔗 Abrir imagen en nueva pestaña]({imagen_url})")
                             else:
                                 st.write("📷 Sin imagen")
                         else:
