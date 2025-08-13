@@ -1716,6 +1716,11 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                 viz_title("Cantidad Pedida por Mes y Talla")
                 
                 if not df_almacen_fam.empty and 'Cantidad pedida' in df_almacen_fam.columns:
+                    # Opción para el usuario: ver todos los meses o solo hasta el último mes de ventas
+                    col1, col2 = st.columns([1, 2])
+                    with col1:
+                        mostrar_todos_meses = st.checkbox("Mostrar todos los meses", value=False, help="Si está marcado, se mostrarán todos los meses disponibles. Si no, solo hasta el último mes de ventas.")
+                    
                     # Preparar datos de cantidad pedida
                     datos_pedida = (
                         df_almacen_fam.groupby(['Mes Entrada', 'Talla'])['Cantidad pedida']
@@ -1725,8 +1730,18 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                         .sort_values(['Mes', 'Talla'])
                     )
                     
-                    # Filtrar datos hasta el último mes de ventas
-                    datos_pedida = datos_pedida[datos_pedida['Mes'] <= ultimo_mes_ventas]
+                    # Aplicar filtro según la opción del usuario
+                    if not mostrar_todos_meses:
+                        # Filtrar datos hasta el último mes de ventas
+                        # Convertir los meses a fechas reales para comparación correcta
+                        datos_pedida['Mes_Date'] = pd.to_datetime(datos_pedida['Mes'] + '-01')
+                        ultimo_mes_ventas_date = pd.to_datetime(ultimo_mes_ventas + '-01')
+                        
+                        # Aplicar filtro usando fechas reales
+                        datos_pedida = datos_pedida[datos_pedida['Mes_Date'] <= ultimo_mes_ventas_date]
+                        
+                        # Eliminar la columna temporal
+                        datos_pedida = datos_pedida.drop('Mes_Date', axis=1)
                     
                     if not datos_pedida.empty:
                         # Crear tabla pivot para mejor visualización
@@ -1995,6 +2010,15 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                 'Cantidad': 'sum',
                 'Beneficio': 'sum'
             }).reset_index()
+            
+            # Limpiar nombres de tiendas problemáticos
+            ventas_tienda_zona['Tienda'] = ventas_tienda_zona['Tienda'].astype(str)
+            ventas_tienda_zona['Tienda'] = ventas_tienda_zona['Tienda'].replace({
+                'COMODIN': 'Sin Asignar',
+                'nan': 'Sin Asignar',
+                'None': 'Sin Asignar',
+                '': 'Sin Asignar'
+            })
             
             # Asegurar que las columnas numéricas son del tipo correcto
             ventas_tienda_zona['Cantidad'] = pd.to_numeric(ventas_tienda_zona['Cantidad'], errors='coerce').fillna(0)
@@ -3191,9 +3215,25 @@ def preprocess_productos_data(df_productos):
     
     # OPTIMIZATION: Process date column more efficiently
     if 'Fecha almacén' in df_productos.columns:
-        df_productos['Fecha almacén'] = pd.to_datetime(df_productos['Fecha almacén'], format='%d/%m/%Y', errors='coerce')
+        # Intentar múltiples formatos de fecha para mayor compatibilidad
+        df_productos['Fecha almacén'] = pd.to_datetime(df_productos['Fecha almacén'], errors='coerce')
+        
+        # Si hay fechas que no se pudieron convertir, mostrar información de debug
+        fechas_invalidas = df_productos['Fecha almacén'].isna().sum()
+        total_fechas = len(df_productos['Fecha almacén'])
+        
+        if fechas_invalidas > 0:
+            print(f"⚠️ {fechas_invalidas} de {total_fechas} fechas no se pudieron convertir")
+        
+        # Solo procesar filas con fechas válidas
         df_productos = df_productos.dropna(subset=['Fecha almacén'])
+        
+        # Crear columna de mes
         df_productos['Mes'] = df_productos['Fecha almacén'].dt.to_period('M').astype(str)
+        
+        # Debug: mostrar los meses únicos encontrados
+        meses_unicos = sorted(df_productos['Mes'].unique())
+        print(f"📅 Meses únicos en productos: {meses_unicos}")
 
     # OPTIMIZATION: Process code columns more efficiently
     if 'Código único' in df_productos.columns:
