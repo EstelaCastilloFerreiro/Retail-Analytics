@@ -261,9 +261,22 @@ else:
                 # --- Filtro de familia ---
                 familias = df_ventas["Descripción Familia"].dropna().unique().tolist()
                 familias.sort()
-                familias_opciones = ["Todas las familias"] + familias
+
+                # Agregar las dos opciones especiales al principio
+                familias_opciones = ["Todas las familias", "Todas sin GR.ART.FICTICIO"] + familias
+
                 familia_seleccionada = st.sidebar.selectbox("Familia", familias_opciones)
-                if familia_seleccionada != "Todas las familias":
+
+                if familia_seleccionada == "Todas las familias":
+                    # No filtrar nada
+                    pass
+
+                elif familia_seleccionada == "Todas sin GR.ART.FICTICIO":
+                    # Filtrar excluyendo GR.ART.FICTICIO
+                    df_ventas = df_ventas[df_ventas["Descripción Familia"] != "GR.ART.FICTICIO"]
+
+                else:
+                    # Filtrar solo la familia seleccionada
                     df_ventas = filter_by_family(df_ventas, familia_seleccionada)
                 # --- Fin filtro de familia ---
 

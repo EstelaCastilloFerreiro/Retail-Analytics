@@ -37,23 +37,15 @@ TEMPORADA_COLORS = ["#e6f3ff", "#99ccff", "#4d94ff", "#0066cc", "#004d99", "#003
 COLOR_GRADIENT_WARM = ["#fff5e6", "#ffebcc", "#ffd699", "#ffc266", "#ffad33", "#ff9900", "#cc7a00", "#995c00", "#663d00"]
 COLOR_GRADIENT_GREEN = ["#e6ffe6", "#ccffcc", "#99ff99", "#66ff66", "#33ff33", "#00ff00", "#00cc00", "#009900", "#006600"]
 
-TIENDAS_EXTRANJERAS = [
-    "I301COINBERGAMO(TRUCCO)", "I302COINVARESE(TRUCCO)", "I303COINBARICASAMASSIMA(TRUCCO)",
-    "I304COINMILANO5GIORNATE(TRUCCO)", "I305COINROMACINECITTA(TRUCCO)", "I306COINGENOVA(TRUCCO)",
-    "I309COINSASSARI(TRUCCO)", "I314COINCATANIA(TRUCCO)", "I315COINCAGLIARI(TRUCCO)",
-    "I316COINLECCE(TRUCCO)", "I317COINMILANOCANTORE(TRUCCO)", "I318COINMESTRE(TRUCCO)",
-    "I319COINPADOVA(TRUCCO)", "I320COINFIRENZE(TRUCCO)", "I321COINROMASANGIOVANNI(TRUCCO)",
-    "TRUCCOONLINEB2C"
-]
 
 tiendas_a_eliminar = [
     "COMODIN",
-    "ECI NAELLE ONLINE",
-    "NAELLE ONLINE B2C",
     "R998- PILOTO",
     "ECI ONLINE GESTION",
     "W001 DEVOLUCIONES WEB (NO ENVIAR TRASP)"
 ]
+
+
 COL_ONLINE = '#2ca02c'   # verde fuerte
 COL_OTRAS = '#ff7f0e'    # naranja
 
@@ -196,6 +188,47 @@ def titulo(text):
 def subtitulo(text):
     st.markdown(f"<h5 style='text-align:left;color:#666666;margin:0;padding:0;font-size:22px;font-weight:bold;'>{text}</h5>", unsafe_allow_html=True)
 
+def identificar_tiendas_naelle(df, columna_tienda='Tienda'):
+    """
+    Devuelve una lista de tiendas que incluyen la palabra 'NAELLE' en su nombre.
+    
+    Args:
+        df (pd.DataFrame): DataFrame con columna de tiendas.
+        columna_tienda (str): Nombre de la columna que contiene las tiendas.
+    
+    Returns:
+        List[str]: Lista de tiendas que contienen 'NAELLE'.
+    """
+    if columna_tienda not in df.columns:
+        return []
+    
+    # Filtrar tiendas que contienen 'NAELLE' (mayúsculas o minúsculas)
+    tiendas_naelle = df[columna_tienda].dropna().unique()
+    tiendas_naelle = [t for t in tiendas_naelle if 'NAELLE' in t.upper()]
+    
+    return sorted(tiendas_naelle)
+
+def identificar_tiendas_italia(df, columna_tienda='Tienda'):
+    """
+    Devuelve una lista de tiendas que incluyen la palabra 'COIN' en su nombre.
+    
+    Args:
+        df (pd.DataFrame): DataFrame con columna de tiendas.
+        columna_tienda (str): Nombre de la columna que contiene las tiendas.
+    
+    Returns:
+        List[str]: Lista de tiendas que contienen 'COIN'.
+    """
+    if columna_tienda not in df.columns:
+        return []
+    
+    # Filtrar tiendas que contienen 'COIN' (mayúsculas o minúsculas)
+    tiendas_it = df[columna_tienda].dropna().unique()
+    tiendas_it = [t for t in tiendas_it if 'COIN' in t.upper()]
+    
+    return sorted(tiendas_it)
+
+
 def aplicar_filtros(df_ventas, df_traspasos):
     if not pd.api.types.is_datetime64_any_dtype(df_ventas['Fecha venta']):
         df_ventas['Fecha venta'] = pd.to_datetime(df_ventas['Fecha venta'], format='%d/%m/%Y', errors='coerce')
@@ -216,46 +249,64 @@ def aplicar_filtros(df_ventas, df_traspasos):
 
     df_ventas_filtrado = df_ventas[(df_ventas['Fecha venta'] >= pd.to_datetime(fecha_inicio)) &
                      (df_ventas['Fecha venta'] <= pd.to_datetime(fecha_fin))]
+    # Listado completo de tiendas
     tiendas = sorted(df_ventas_filtrado['Tienda'].dropna().unique())
-    modo_tienda = st.sidebar.selectbox(
-        "Modo selección tiendas",
-        ["Todas las tiendas", "Seleccionar tiendas específicas"]
-    )
-    if modo_tienda == "Todas las tiendas":
-        tienda_seleccionada = tiendas
-        tiendas_especificas = False
-    else:
-        tienda_seleccionada = st.sidebar.multiselect(
-            "Selecciona tienda(s)",
-            options=tiendas
-        )
+
+    # Listas de tiendas por marca / tipo
+    TIENDAS_NAELLE = identificar_tiendas_naelle(df_ventas)
+    tiendas_naelle = [t for t in tiendas if t in TIENDAS_NAELLE]
+    TIENDAS_ITALIA = identificar_tiendas_italia(df_ventas)
+    tiendas_extranjeras = [t for t in tiendas if t in TIENDAS_ITALIA]
+    tiendas_trucco = [t for t in tiendas if t not in tiendas_naelle + tiendas_extranjeras]
+
+    # Opciones del filtro y mapping a tiendas
+    opciones_tienda = [
+        "Todas las tiendas",
+        "Todas las tiendas marca Trucco ES",
+        "Todas las tiendas IT",
+        "Todas las tiendas marca Naelle",
+        "Seleccionar tiendas específicas"
+    ]
+
+    mapping_tiendas = {
+        "Todas las tiendas": tiendas,
+        "Todas las tiendas marca Trucco ES": tiendas_trucco,
+        "Todas las tiendas IT": tiendas_extranjeras,
+        "Todas las tiendas marca Naelle": tiendas_naelle
+    }
+
+    modo_tienda = st.sidebar.selectbox("Modo selección tiendas", opciones_tienda)
+
+    # Selección de tiendas
+    if modo_tienda == "Seleccionar tiendas específicas":
+        tienda_seleccionada = st.sidebar.multiselect("Selecciona tienda(s)", options=tiendas)
         if not tienda_seleccionada:
             st.sidebar.warning("Selecciona al menos una tienda para mostrar datos.")
-            if df_traspasos is not None:
-                return df_ventas.iloc[0:0], df_traspasos.iloc[0:0], False, []
-            return df_ventas.iloc[0:0], False, []
+            return df_ventas_filtrado.iloc[0:0], df_traspasos.iloc[0:0] if df_traspasos is not None else df_ventas_filtrado.iloc[0:0], False, []
         tiendas_especificas = True
-    
+    else:
+        tienda_seleccionada = mapping_tiendas.get(modo_tienda, tiendas)
+        tiendas_especificas = False
+
+    # Filtrar dataframe principal
     df_ventas_filtrado = df_ventas_filtrado[df_ventas_filtrado['Tienda'].isin(tienda_seleccionada)]
-    
-    # Aplicar filtro de tienda a traspasos si se proporciona
+
+    # Filtrar traspasos si existe
     if df_traspasos is not None:
         df_traspasos_filtrado = df_traspasos.copy()
-        # Usar el mismo procesamiento flexible de fechas que en preprocess_traspasos_data
-        try:
-            df_traspasos_filtrado['Fecha enviado'] = pd.to_datetime(df_traspasos_filtrado['Fecha enviado'], format='%d/%m/%Y', errors='coerce')
-        except:
+        # Convertir fechas de forma flexible
+        for fmt in ['%d/%m/%Y', None]:
             try:
-                df_traspasos_filtrado['Fecha enviado'] = pd.to_datetime(df_traspasos_filtrado['Fecha enviado'], dayfirst=True, errors='coerce')
+                df_traspasos_filtrado['Fecha enviado'] = pd.to_datetime(df_traspasos_filtrado['Fecha enviado'], format=fmt, errors='coerce')
+                break
             except:
-                df_traspasos_filtrado['Fecha enviado'] = pd.to_datetime(df_traspasos_filtrado['Fecha enviado'], errors='coerce')
-        
-        # Asegurar que la columna Tienda existe en traspasos
+                continue
         if 'Tienda' in df_traspasos_filtrado.columns:
             df_traspasos_filtrado = df_traspasos_filtrado[df_traspasos_filtrado['Tienda'].isin(tienda_seleccionada)]
         return df_ventas_filtrado, df_traspasos_filtrado, tiendas_especificas, tienda_seleccionada
-    
+
     return df_ventas_filtrado, tiendas_especificas, tienda_seleccionada
+
 
 
 
@@ -337,19 +388,6 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
     df_productos = preprocess_productos_data(df_productos)
     df_traspasos = preprocess_traspasos_data(df_traspasos)
     
-
-    # Merge Precio Coste from df_productos into df_ventas using Código único
-    df_ventas_precios = df_ventas.merge(
-        df_productos[['Código único', 'Precio Coste']],
-        on='Código único',
-        how='left',
-        suffixes=('', '_producto')
-    )
-    # Prefer Precio Coste from df_productos if available
-    if 'Precio Coste_producto' in df_ventas_precios.columns:
-        df_ventas_precios['Precio Coste'] = df_ventas_precios['Precio Coste_producto'].combine_first(df_ventas_precios['Precio Coste'])
-        df_ventas_precios = df_ventas_precios.drop(columns=['Precio Coste_producto'])
-
    
     # Calcular ranking completo de todas las tiendas ANTES de aplicar filtros
     ventas_por_tienda_completo = calculate_store_rankings(df_ventas)
@@ -373,6 +411,18 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
     if df_ventas.empty:
         st.warning("No hay datos para mostrar con los filtros seleccionados.")
         return
+
+    # Merge Precio Coste from df_productos into df_ventas using Código único
+    df_ventas_precios = df_ventas.merge(
+        df_productos[['Código único', 'Precio Coste']],
+        on='Código único',
+        how='left',
+        suffixes=('', '_producto')
+    )
+    # Prefer Precio Coste from df_productos if available
+    if 'Precio Coste_producto' in df_ventas_precios.columns:
+        df_ventas_precios['Precio Coste'] = df_ventas_precios['Precio Coste_producto'].combine_first(df_ventas_precios['Precio Coste'])
+        df_ventas_precios = df_ventas_precios.drop(columns=['Precio Coste_producto'])
 
     if seccion == "Resumen General":
         try:
@@ -745,34 +795,40 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                     st.plotly_chart(fig, use_container_width=True)
 
                 with col3:
-                    # Top 30 tiendas con menos ventas por Beneficio
-                    viz_title("Top 30 tiendas con menos ventas")
-                    bottom_30_tiendas = ventas_por_tienda_completo.tail(30)
+                    total_tiendas = len(ventas_por_tienda_completo)
                     
-                    fig = px.bar(
-                        bottom_30_tiendas,
-                        x='Tienda',
-                        y='Beneficio',
-                        color='Beneficio',
-                        color_continuous_scale=COLOR_GRADIENT,
-                        height=400,
-                        labels={'Tienda': 'Tienda', 'Beneficio': 'Beneficio', 'Unidades Vendidas': 'Unidades'}
-                    )
-                    fig.update_layout(
-                        xaxis_tickangle=45,
-                        showlegend=False,
-                        margin=dict(t=0, b=0, l=0, r=0),
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        plot_bgcolor="rgba(0,0,0,0)"
-                    )
-                    fig.update_traces(
-                        texttemplate='%{y:,.2f}€',
-                        textposition='outside',
-                        hovertemplate="Tienda: %{x}<br>Ventas: %{y:,.2f}€<br>Unidades: %{customdata:,}<extra></extra>",
-                        customdata=bottom_30_tiendas['Unidades Vendidas'],
-                        opacity=0.8
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
+                    if total_tiendas > 30:
+                        # Top 30 tiendas con menos ventas por Beneficio
+                        viz_title("Top 30 tiendas con menos ventas")
+                        bottom_30_tiendas = ventas_por_tienda_completo.tail(30)
+                        
+                        fig = px.bar(
+                            bottom_30_tiendas,
+                            x='Tienda',
+                            y='Beneficio',
+                            color='Beneficio',
+                            color_continuous_scale=COLOR_GRADIENT,
+                            height=400,
+                            labels={'Tienda': 'Tienda', 'Beneficio': 'Beneficio', 'Unidades Vendidas': 'Unidades'}
+                        )
+                        fig.update_layout(
+                            xaxis_tickangle=45,
+                            showlegend=False,
+                            margin=dict(t=0, b=0, l=0, r=0),
+                            paper_bgcolor="rgba(0,0,0,0)",
+                            plot_bgcolor="rgba(0,0,0,0)"
+                        )
+                        fig.update_traces(
+                            texttemplate='%{y:,.2f}€',
+                            textposition='outside',
+                            hovertemplate="Tienda: %{x}<br>Ventas: %{y:,.2f}€<br>Unidades: %{customdata:,}<extra></extra>",
+                            customdata=bottom_30_tiendas['Unidades Vendidas'],
+                            opacity=0.8
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.info(f"Solo hay {total_tiendas} tiendas donde se ha vendido este producto.")
+
 
             # Col 4: Unidades Vendidas por Talla (centered)
             col4a, col4b, col4c = st.columns([1, 2, 1])
@@ -1191,21 +1247,15 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                                     tema = temas[0]
                                     st.subheader(f"Entrada Almacén - {tema}")
                                     
-                                    # Crear gráfico de comparación enviado vs ventas
-                                    if tema == 'T_OI25':
-                                        temporada_comparacion = 'I2025'
-                                    elif tema == 'T_PV25':
-                                        temporada_comparacion = 'V2025'
-                                    elif tema == 'T_PV23':
-                                        temporada_comparacion = 'V2023'
-                                    elif tema == 'T_PV24':
-                                        temporada_comparacion = 'V2024'
-                                    elif tema == 'T_OI24':
-                                        temporada_comparacion = 'I2024'
-                                    elif tema == 'T_OI23':
-                                        temporada_comparacion = 'I2023'
+                                   # tema looks like "T_OI25" or "T_PV24"
+                                    if tema.startswith("T_") and len(tema) == 6:
+                                        # Extract the season part (OI / PV) and year part (23,24,25)
+                                        season_code = tema[2:4]   # 'OI' or 'PV'
+                                        year_code = tema[4:]      # '23', '24', '25'
+                                        temporada_comparacion = f"{season_code[0]}20{year_code}"
                                     else:
                                         temporada_comparacion = None
+
                                     
                                     if temporada_comparacion:
                                         ventas_temporada = df_ventas[df_ventas['Temporada'] == temporada_comparacion]
@@ -1329,21 +1379,15 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                                     with locals()[f'col{5+i}']:
                                         st.subheader(f"Entrada Almacén - {tema}")
                                         
-                                        # Crear gráfico de comparación enviado vs ventas
-                                        if tema == 'T_OI25':
-                                            temporada_comparacion = 'I2025'
-                                        elif tema == 'T_PV25':
-                                            temporada_comparacion = 'V2025'
-                                        elif tema == 'T_PV23':
-                                            temporada_comparacion = 'V2023'
-                                        elif tema == 'T_PV24':
-                                            temporada_comparacion = 'V2024'
-                                        elif tema == 'T_OI24':
-                                            temporada_comparacion = 'I2024'
-                                        elif tema == 'T_OI23':
-                                            temporada_comparacion = 'I2023'
+                                        # tema looks like "T_OI25" or "T_PV24"
+                                        if tema.startswith("T_") and len(tema) == 6:
+                                            # Extract the season part (OI / PV) and year part (23,24,25)
+                                            season_code = tema[2:4]   # 'OI' or 'PV'
+                                            year_code = tema[4:]      # '23', '24', '25'
+                                            temporada_comparacion = f"{season_code[0]}20{year_code}"
                                         else:
                                             temporada_comparacion = None
+
                                         
                                         if temporada_comparacion:
                                             ventas_temporada = df_ventas[df_ventas['Temporada'] == temporada_comparacion]
@@ -1454,21 +1498,16 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                                     for tema in temas_col5:
                                         st.subheader(f"Entrada Almacén - {tema}")
                                         
-                                        # Crear gráfico de comparación enviado vs ventas
-                                        if tema == 'T_OI25':
-                                            temporada_comparacion = 'I2025'
-                                        elif tema == 'T_PV25':
-                                            temporada_comparacion = 'V2025'
-                                        elif tema == 'T_PV23':
-                                            temporada_comparacion = 'V2023'
-                                        elif tema == 'T_PV24':
-                                            temporada_comparacion = 'V2024'
-                                        elif tema == 'T_OI24':
-                                            temporada_comparacion = 'I2024'
-                                        elif tema == 'T_OI23':
-                                            temporada_comparacion = 'I2023'
+                                        
+                                        # tema looks like "T_OI25" or "T_PV24"
+                                        if tema.startswith("T_") and len(tema) == 6:
+                                            # Extract the season part (OI / PV) and year part (23,24,25)
+                                            season_code = tema[2:4]   # 'OI' or 'PV'
+                                            year_code = tema[4:]      # '23', '24', '25'
+                                            temporada_comparacion = f"{season_code[0]}20{year_code}"
                                         else:
                                             temporada_comparacion = None
+
                                         
                                         if temporada_comparacion:
                                             # Obtener datos de ventas para la temporada
@@ -1585,20 +1624,15 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                                         st.subheader(f"Entrada Almacén - {tema}")
                                         
                                         # Crear gráfico de comparación enviado vs ventas
-                                        if tema == 'T_OI25':
-                                            temporada_comparacion = 'I2025'
-                                        elif tema == 'T_PV25':
-                                            temporada_comparacion = 'V2025'
-                                        elif tema == 'T_PV23':
-                                            temporada_comparacion = 'V2023'
-                                        elif tema == 'T_PV24':
-                                            temporada_comparacion = 'V2024'
-                                        elif tema == 'T_OI24':
-                                            temporada_comparacion = 'I2024'
-                                        elif tema == 'T_OI23':
-                                            temporada_comparacion = 'I2023'
+                                        # tema looks like "T_OI25" or "T_PV24"
+                                        if tema.startswith("T_") and len(tema) == 6:
+                                            # Extract the season part (OI / PV) and year part (23,24,25)
+                                            season_code = tema[2:4]   # 'OI' or 'PV'
+                                            year_code = tema[4:]      # '23', '24', '25'
+                                            temporada_comparacion = f"{season_code[0]}20{year_code}"
                                         else:
                                             temporada_comparacion = None
+
                                         
                                         if temporada_comparacion:
                                             # Obtener datos de ventas para la temporada
@@ -2540,17 +2574,16 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
         # Calcular descuento real basado en la diferencia entre PVP y precio real de venta
         if all(col in df_ventas.columns for col in ['PVP', 'Beneficio', 'Cantidad']):
             # Solo para ventas positivas (no devoluciones)
-            df_ventas_positivas = df_ventas[df_ventas['Cantidad'] > 0].copy()
-            if not df_ventas_positivas.empty:
-                df_ventas_positivas['Precio Real Unitario'] = df_ventas_positivas['Beneficio'] / df_ventas_positivas['Cantidad']
+            if not ventas.empty:
+                ventas['Precio Real Unitario'] = ventas['Beneficio'] / ventas['Cantidad']
                 # Evitar división por cero
-                df_ventas_positivas['Descuento Real %'] = 0
-                mask = (df_ventas_positivas['PVP'] != 0) & (df_ventas_positivas['Precio Real Unitario'].notna())
-                df_ventas_positivas.loc[mask, 'Descuento Real %'] = (
-                    (df_ventas_positivas.loc[mask, 'PVP'] - df_ventas_positivas.loc[mask, 'Precio Real Unitario']) / 
-                    df_ventas_positivas.loc[mask, 'PVP'] * 100
+                ventas['Descuento Real %'] = 0
+                mask = (ventas['PVP'] != 0) & (ventas['Precio Real Unitario'].notna())
+                ventas.loc[mask, 'Descuento Real %'] = (
+                    (ventas.loc[mask, 'PVP'] - ventas.loc[mask, 'Precio Real Unitario']) / 
+                    ventas.loc[mask, 'PVP'] * 100
                 )
-                df_ventas_positivas['Descuento Real %'] = df_ventas_positivas['Descuento Real %'].clip(0, 100)
+                ventas['Descuento Real %'] = ventas['Descuento Real %'].clip(0, 100)
 
         # ===== KPIs =====
         st.markdown("### 📊 **KPIs de Devoluciones, Rebajas y Margen**")
@@ -2593,92 +2626,94 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                 familia_mas_devuelta = familia_mas_devuelta_data.index[0]
                 familia_devuelta_unidades = familia_mas_devuelta_data.iloc[0]
         
-        # Rebajas 1ª (Enero y Junio)
-        ventas_rebajas_1 = 0
-        porcentaje_rebajas_1 = 0
-        if 'Fecha venta' in df_ventas.columns:
-            df_ventas_temp = df_ventas.copy()
-            df_ventas_temp['Fecha venta'] = pd.to_datetime(df_ventas_temp['Fecha venta'], errors='coerce')
-            df_ventas_temp['mes'] = df_ventas_temp['Fecha venta'].dt.month
-            # Solo ventas positivas (no devoluciones)
-            df_ventas_temp = df_ventas_temp[df_ventas_temp['Cantidad'] > 0]
-            rebajas_1 = df_ventas_temp[df_ventas_temp['mes'].isin([1, 6])]
+
+        def get_temporada_actual(fecha):
+            """Devuelve la temporada actual según la fecha de venta."""
+            mes = fecha.month
+            año = fecha.year
             
-            if not rebajas_1.empty:
-                ventas_rebajas_1 = rebajas_1['Beneficio'].sum()
-                
-                # Calcular porcentaje sobre el total de ventas (no solo beneficio)
-                total_ventas_periodo = df_ventas_temp['Beneficio'].sum()
-                if total_ventas_periodo > 0:
-                    porcentaje_rebajas_1 = (ventas_rebajas_1 / total_ventas_periodo * 100)
-        
-        # Rebajas 2ª (Febrero y Julio)
-        ventas_rebajas_2 = 0
-        porcentaje_rebajas_2 = 0
+            if mes >= 3 and mes <= 8:
+                # Primavera-Verano del mismo año
+                return f"V{año}"
+            else:
+                # Otoño-Invierno: desde septiembre a febrero siguiente
+                # Si es enero/febrero pertenece al invierno del mismo año
+                if mes in [1, 2]:
+                    return f"I{año}"
+                else:  # sept-dic
+                    return f"I{año+1}"
+
         if 'Fecha venta' in df_ventas.columns:
-            df_ventas_temp = df_ventas.copy()
-            df_ventas_temp['Fecha venta'] = pd.to_datetime(df_ventas_temp['Fecha venta'], errors='coerce')
-            df_ventas_temp['mes'] = df_ventas_temp['Fecha venta'].dt.month
-            # Solo ventas positivas (no devoluciones)
-            df_ventas_temp = df_ventas_temp[df_ventas_temp['Cantidad'] > 0]
-            rebajas_2 = df_ventas_temp[df_ventas_temp['mes'].isin([2, 7])]
+            df = df_ventas.copy()
+            df['Fecha venta'] = pd.to_datetime(df['Fecha venta'], errors='coerce')
+            df = df[df['Cantidad'] > 0]  # solo ventas positivas
+            df['mes'] = df['Fecha venta'].dt.month
             
-            if not rebajas_2.empty:
-                ventas_rebajas_2 = rebajas_2['Beneficio'].sum()
-                
-                # Calcular porcentaje sobre el total de ventas (no solo beneficio)
-                total_ventas_periodo = df_ventas_temp['Beneficio'].sum()
-                if total_ventas_periodo > 0:
-                    porcentaje_rebajas_2 = (ventas_rebajas_2 / total_ventas_periodo * 100)
-        
-        # Margen bruto por unidad (promedio)
+            # Calcular precio real unitario y descuento
+            df['Precio Real Unitario'] = df['Beneficio'] / df['Cantidad']
+            mask = (df['PVP'] != 0) & (df['Precio Real Unitario'].notna())
+            df['Descuento Real %'] = 0
+            df.loc[mask, 'Descuento Real %'] = (
+                (df.loc[mask, 'PVP'] - df.loc[mask, 'Precio Real Unitario']) /
+                df.loc[mask, 'PVP'] * 100
+            )
+            df['Descuento Real %'] = df['Descuento Real %'].clip(0, 100)
+            
+            # Determinar temporada actual por fecha de venta
+            df['Temporada Actual'] = df['Fecha venta'].apply(get_temporada_actual)
+            df['Fuera Temporada'] = df['Temporada'] != df['Temporada Actual']
+            
+            # Venta rebajada si hay descuento o está fuera de temporada
+            df['Es Rebaja'] = (df['Descuento Real %'] > 0) | (df['Fuera Temporada'])
+            
+            # Primera rebaja: enero o junio
+            rebajas_1 = df[(df['Es Rebaja']) & (df['mes'].isin([1,6]))]
+            ventas_rebajas_1 = rebajas_1['Beneficio'].sum()
+            total_ventas = df['Beneficio'].sum()
+            porcentaje_rebajas_1 = (ventas_rebajas_1 / total_ventas * 100) if total_ventas > 0 else 0
+            
+            # Segunda rebaja: febrero o julio
+            rebajas_2 = df[(df['Es Rebaja']) & (df['mes'].isin([2,7,8]))]
+            ventas_rebajas_2 = rebajas_2['Beneficio'].sum()
+            porcentaje_rebajas_2 = (ventas_rebajas_2 / total_ventas * 100) if total_ventas > 0 else 0
+
         margen_unitario_promedio = 0
         margen_unitario_promedio_positivo = 0
-        if all(col in df_ventas_precios.columns for col in ['PVP', 'Precio Coste']):
-            df_ventas_temp = df_ventas_precios.copy()
-            df_ventas_temp['margen_unitario'] = df_ventas_temp['PVP'] - df_ventas_temp['Precio Coste']
-            
-            # Calcular promedios correctamente
-            if not df_ventas_temp.empty:
-                margen_unitario_promedio = df_ventas_temp['margen_unitario'].mean()
-                
-                # Solo productos con margen positivo para el promedio positivo
-                df_ventas_temp_positivos = df_ventas_temp[df_ventas_temp['margen_unitario'] > 0]
-                if not df_ventas_temp_positivos.empty:
-                    margen_unitario_promedio_positivo = df_ventas_temp_positivos['margen_unitario'].mean()
-                else:
-                    margen_unitario_promedio_positivo = 0
-            else:
-                margen_unitario_promedio = 0
-                margen_unitario_promedio_positivo = 0
-        
-        # Margen porcentual (promedio)
         margen_porcentual_promedio = 0
         margen_porcentual_promedio_positivo = 0
-        if all(col in df_ventas_precios.columns for col in ['PVP', 'Precio Coste']):
+
+        # Verificar que existan las columnas necesarias
+        if all(col in df_ventas_precios.columns for col in ['Beneficio', 'Cantidad', 'Precio Coste']):
             df_ventas_temp = df_ventas_precios.copy()
-            df_ventas_temp['margen_unitario'] = df_ventas_temp['PVP'] - df_ventas_temp['Precio Coste']
             
-            # Calcular margen porcentual correctamente
-            # Margen % = (PVP - Precio Coste) / PVP * 100
-            df_ventas_temp['margen_%'] = (df_ventas_temp['margen_unitario'] / df_ventas_temp['PVP']) * 100
+            # Evitar división por cero: solo ventas positivas
+            df_ventas_temp = df_ventas_temp[df_ventas_temp['Cantidad'] > 0]
             
-            # Ignorar productos con PVP = 0 para el promedio real
-            df_ventas_temp_validos = df_ventas_temp[df_ventas_temp['PVP'] != 0]
-            
-            # Calcular promedios correctamente
-            if not df_ventas_temp_validos.empty:
-                margen_porcentual_promedio = df_ventas_temp_validos['margen_%'].mean()
+            if not df_ventas_temp.empty:
+                # Precio real por unidad
+                df_ventas_temp['precio_real_unitario'] = df_ventas_temp['Beneficio'] / df_ventas_temp['Cantidad']
                 
-                # Solo productos con margen positivo para el promedio positivo
-                df_ventas_temp_positivos = df_ventas_temp_validos[df_ventas_temp_validos['margen_%'] > 0]
-                if not df_ventas_temp_positivos.empty:
-                    margen_porcentual_promedio_positivo = df_ventas_temp_positivos['margen_%'].mean()
-                else:
-                    margen_porcentual_promedio_positivo = 0
-            else:
-                margen_porcentual_promedio = 0
-                margen_porcentual_promedio_positivo = 0
+                # Margen bruto por unidad
+                df_ventas_temp['margen_unitario'] = df_ventas_temp['precio_real_unitario'] - df_ventas_temp['Precio Coste']
+                
+                # Margen % = (margen unitario / precio real unitario) * 100
+                mask = df_ventas_temp['precio_real_unitario'] != 0
+                df_ventas_temp.loc[mask, 'margen_%'] = (
+                    df_ventas_temp.loc[mask, 'margen_unitario'] / df_ventas_temp.loc[mask, 'precio_real_unitario'] * 100
+                )
+                
+                # --- Promedios de margen unitario ---
+                margen_unitario_promedio = df_ventas_temp['margen_unitario'].mean()
+                df_pos = df_ventas_temp[df_ventas_temp['margen_unitario'] > 0]
+                margen_unitario_promedio_positivo = df_pos['margen_unitario'].mean() if not df_pos.empty else 0
+                
+                # --- Promedios de margen porcentual ---
+                df_validos = df_ventas_temp[mask]
+                if not df_validos.empty:
+                    margen_porcentual_promedio = df_validos['margen_%'].mean()
+                    df_pos_pct = df_validos[df_validos['margen_%'] > 0]
+                    margen_porcentual_promedio_positivo = df_pos_pct['margen_%'].mean() if not df_pos_pct.empty else 0
+
         
         # KPIs in HTML style like Resumen General
         st.markdown("""
@@ -2721,6 +2756,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             ventas_rebajas_2, porcentaje_rebajas_2), unsafe_allow_html=True)
         
         # Margen KPIs in separate row
+        st.info(f" Para el cálculo del margen se incluyen únicamente los productos con información disponible sobre su precio de coste. Si el resultado es 0 en alguna familia, esto indica la ausencia de datos de coste para dicha categoría.")
         st.markdown("""
             <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; background-color: white;">
                 <div style="color: #666666; font-size: 16px; font-weight: 600; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e5e7eb;">
@@ -2746,6 +2782,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             margen_porcentual_promedio if margen_porcentual_promedio is not None else 0
         ), unsafe_allow_html=True)
 
+        
         # Tabla de depuración: productos con margen negativo
         if all(col in df_ventas_precios.columns for col in ['PVP', 'Precio Coste']):
             df_ventas_temp = df_ventas_precios.copy()
@@ -2861,7 +2898,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             st.info("No hay datos de tallas en las devoluciones disponibles.")
 
         # Row 3: Análisis de ventas en/ fuera de temporada
-        st.markdown("#### ** Análisis de Ventas por Temporada**")
+        st.markdown("#### **Análisis de Ventas por Temporada**")
         
         if 'Temporada' in df_ventas.columns:
             # Función para determinar si un producto fue vendido fuera de su temporada
@@ -2961,7 +2998,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
 
         # ===== TABLA DE PRODUCTOS CON BAJO MARGEN (al final) =====
         st.markdown("---")
-        st.markdown("### **Productos con Bajo Margen**")
+        st.markdown("### **Productos con bajo Margen**")
         
         # Buscar columnas que podrían ser Precio Coste
         columnas_disponibles = df_ventas_precios.columns.tolist()
@@ -2974,74 +3011,90 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                 break
         
         if coste_col and 'Beneficio' in df_ventas_precios.columns and 'Cantidad' in df_ventas_precios.columns:
-            # Slider para ajustar el umbral de margen
+            # Slider en escala 0–100
             umbral_margen = st.slider(
                 "Umbral de margen % (productos por debajo de este valor):",
                 min_value=0.0,
-                max_value=1.0,
-                value=0.36,
-                step=0.01,
-                format="%.2f"
+                max_value=100.0,
+                value=36.0,
+                step=1.0,
+                format="%.0f"
             )
             
-            # Calcular márgenes usando Beneficio (Beneficio) como precio de venta
-            # Excluir devoluciones (Cantidad < 0)
-            df_ventas_temp = df_ventas[df_ventas['Cantidad'] > 0].copy()
-            df_ventas_temp['Precio_venta'] = df_ventas_temp['Beneficio'] / df_ventas_temp['Cantidad']
-            df_ventas_temp['margen_unitario'] = df_ventas_temp['Precio_venta'] - df_ventas_temp[coste_col]
-            df_ventas_temp['margen_%'] = df_ventas_temp['margen_unitario'] / df_ventas_temp['Precio_venta']
+            if all(col in df_ventas_precios.columns for col in ['Beneficio', 'Cantidad', 'Precio Coste']):
+                df_ventas_temp = df_ventas_precios.copy()
+                df_ventas_temp = df_ventas_temp[df_ventas_temp['Cantidad'] > 0]  # solo ventas positivas
+                
+                if not df_ventas_temp.empty:
+                    # Precio real por unidad
+                    df_ventas_temp['precio_real_unitario'] = df_ventas_temp['Beneficio'] / df_ventas_temp['Cantidad']
+                    
+                    # Margen bruto por unidad
+                    df_ventas_temp['margen_unitario'] = df_ventas_temp['precio_real_unitario'] - df_ventas_temp['Precio Coste']
+                    
+                    # Margen % en escala 0–100
+                    mask = df_ventas_temp['precio_real_unitario'] != 0
+                    df_ventas_temp.loc[mask, 'margen_%'] = (
+                        df_ventas_temp.loc[mask, 'margen_unitario'] / df_ventas_temp.loc[mask, 'precio_real_unitario'] * 100
+                    )
             
-            # Filtrar productos con margen bajo (incluyendo márgenes negativos)
+            # Filtrar productos con margen bajo
             productos_bajo_margen = df_ventas_temp[df_ventas_temp['margen_%'] < umbral_margen].copy()
             
             if not productos_bajo_margen.empty:
-                # Preparar tabla con las columnas solicitadas
+                # Preparar tabla con columnas solicitadas
                 tabla_bajo_margen = productos_bajo_margen[[
                     'Código único', 'Familia', 'Temporada', 'Fecha venta', 
-                    'Precio_venta', coste_col, 'margen_%'
+                    'precio_real_unitario', coste_col, 'margen_%', 'Cantidad'   # <--- añadir Cantidad
                 ]].copy()
+
                 
-                # Formatear columnas
+                # Formatear
                 tabla_bajo_margen['Fecha venta'] = pd.to_datetime(tabla_bajo_margen['Fecha venta']).dt.strftime('%d/%m/%Y')
-                tabla_bajo_margen['Precio_venta'] = tabla_bajo_margen['Precio_venta'].round(2)
+                tabla_bajo_margen['precio_real_unitario'] = tabla_bajo_margen['precio_real_unitario'].round(2)
                 tabla_bajo_margen[coste_col] = tabla_bajo_margen[coste_col].round(2)
-                tabla_bajo_margen['margen_%'] = (tabla_bajo_margen['margen_%'] * 100).round(1)
+                tabla_bajo_margen['margen_%'] = tabla_bajo_margen['margen_%'].round(1)
                 
-                # Renombrar columnas para mejor visualización
+                # Renombrar columnas
                 tabla_bajo_margen.columns = [
                     'Código único', 'Familia', 'Temporada', 'Fecha Venta', 
-                    'Precio Venta (€)', f'{coste_col} (€)', 'Margen %'
+                    'Precio Venta (€)', f'{coste_col} (€)', 'Margen %', 'Cantidad'
                 ]
                 
-                st.markdown(f"**Productos con margen inferior al {umbral_margen*100:.0f}% ({len(tabla_bajo_margen)} productos):**")
+                st.markdown(f"**Productos con margen inferior al {umbral_margen:.0f}% ({len(tabla_bajo_margen)} productos):**")
                 st.dataframe(
                     tabla_bajo_margen,
                     use_container_width=True,
                     hide_index=True
                 )
+
                 
-                # Estadísticas adicionales con manejo de errores
+                # Estadísticas basadas en la tabla mostrada
                 col_stats1, col_stats2, col_stats3 = st.columns(3)
+
                 with col_stats1:
                     st.metric("Total productos", len(tabla_bajo_margen))
+
                 with col_stats2:
                     margen_promedio_bajo = tabla_bajo_margen['Margen %'].mean()
-                    if pd.isna(margen_promedio_bajo) or margen_promedio_bajo == float('inf') or margen_promedio_bajo == float('-inf'):
+                    if pd.isna(margen_promedio_bajo) or margen_promedio_bajo in [float('inf'), float('-inf')]:
                         st.metric("Margen promedio", "N/A")
                     else:
                         st.metric("Margen promedio", f"{margen_promedio_bajo:.1f}%")
+
                 with col_stats3:
-                    # Calcular pérdida estimada de manera más robusta
                     try:
-                        # Solo considerar productos con margen negativo o muy bajo
+                        # Filtrar productos con margen negativo
                         productos_perdida = tabla_bajo_margen[tabla_bajo_margen['Margen %'] < 0].copy()
                         if not productos_perdida.empty:
-                            # Usar los nombres de columnas originales para el cálculo
-                            coste_col_name = f'{coste_col} (€)'
+                            # Columnas de la tabla
                             precio_venta_col = 'Precio Venta (€)'
-                            perdida_total = ((productos_perdida[coste_col_name] - productos_perdida[precio_venta_col]) * 
-                                           abs(productos_perdida['Margen %'] / 100)).sum()
-                            if pd.isna(perdida_total) or perdida_total == float('inf') or perdida_total == float('-inf'):
+                            coste_col_name = f'{coste_col} (€)'
+                            
+                            # Calcular pérdida total: (Coste - Venta) * Cantidad
+                            perdida_total = ((productos_perdida[coste_col_name] - productos_perdida[precio_venta_col]) 
+                                            * productos_perdida['Cantidad']).sum()
+                            if pd.isna(perdida_total) or perdida_total in [float('inf'), float('-inf')]:
                                 st.metric("Pérdida estimada", "N/A")
                             else:
                                 st.metric("Pérdida estimada", f"{perdida_total:.0f}€")
@@ -3049,8 +3102,9 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                             st.metric("Pérdida estimada", "0€")
                     except Exception as e:
                         st.metric("Pérdida estimada", f"Error: {str(e)}")
+
             else:
-                st.info(f"No hay productos con margen inferior al {umbral_margen*100:.0f}%")
+                st.info(f"No hay productos con margen inferior al {umbral_margen:.0f}%")
         else:
             st.info("No hay datos de Precio Coste, Beneficio o Cantidad disponibles para el análisis de márgenes.")
 
