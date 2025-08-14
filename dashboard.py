@@ -2281,101 +2281,148 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
             viz_title("Mapa de Ventas - España")
             
             # Separar datos por país
-            df_espana = df_ventas[~df_ventas['Tienda'].isin(TIENDAS_EXTRANJERAS)].copy()
+            TIENDAS_ITALIA = identificar_tiendas_italia(df_ventas)
+            df_espana = df_ventas[~df_ventas['Tienda'].isin(TIENDAS_ITALIA)].copy()
             
-            # Procesar datos de España usando Zona geográfica
-            mapeo_zona_ciudad = {
-                'Zona Madrid': 'MADRID',
-                'Zona Andalucía': 'SEVILLA',
-                'Zona Valencia': 'VALENCIA',
-                'Zona Galicia': 'VIGO',
-                'Zona Murcia': 'MURCIA',
-                'Zona Castilla y León': 'SALAMANCA',
-                'Zona País Vasco': 'BILBAO',
-                'Zona Aragón': 'ZARAGOZA',
-                'Zona Asturias': 'GIJON',
-                'Zona Castilla-La Mancha': 'ALBACETE',
-                'Zona Cataluña': 'BARCELONA',
-                'Zona Cantabria': 'SANTANDER',
-                'Zona Navarra': 'PAMPLONA',
-                'Zona La Rioja': 'LOGROÑO',
-                'Zona Extremadura': 'BADAJOZ',
-                'Zona Canarias': 'LAS PALMAS',
-                'Zona Baleares': 'PALMA'
-            }
-            
-            # Asignar ciudad basada en zona geográfica
-            df_espana['Ciudad'] = df_espana['Zona Geográfica'].map(mapeo_zona_ciudad)
-            
-            # Para tiendas sin zona geográfica, intentar extraer del nombre
-            df_espana['Ciudad'] = df_espana['Ciudad'].fillna(
-                df_espana['Tienda'].str.extract(r'ET\d{1,2}-([\w\s\.\(\)]+)', expand=False)
-                .str.upper()
-                .str.replace(r'ECITRUCCO|ECI|XANADU|TRUCCO|CORT.*|\(.*\)', '', regex=True)
-                .str.strip()
-            )
+            tienda_a_coord = {
+                # --- EN ---
+                'EN02- VALENCIA ECI PINTOR SOROLLA': (39.4702, -0.3768),
+                'EN03- SANCHINARRO ECI': (40.4940, -3.6620),
+                'EN04- VITORIA ECI': (42.8467, -2.6716),
+                'EN05-ZARAGOZA': (41.6488, -0.8891),
+                'EN07- GOYA ECI': (40.4240, -3.6800),
+                'EN08- BILBAO ECI': (43.2630, -2.9350),
+                'EN09- LAS PALMAS MESA Y LOPEZ ECI': (28.1297, -15.4457),
+                'EN11- LEON ECI': (42.5987, -5.5671),
+                'EN13- CASTELLON ECI': (39.9864, -0.0513),
+                'EN14- CORUÑA ECI': (43.3623, -8.4115),
+                'EN15- VALLADOLID ECI': (41.6523, -4.7245),
+                'EN16- GIJON ECI': (43.5322, -5.6611),
+                'EN19- SANTANDER': (43.4623, -3.8099),
+                'EN24- 7 PALMAS -GRAN CANARIA EC': (28.1081, -15.4565),
+                'EN25- MALLORCA ECI NAELLE': (39.5712, 2.6490),
+                'EN26- VALENCIA AVDA.FRANCIA ECI NAELLE': (39.4615, -0.3400),
+                'EN27- VAGUADA ECI NAELLE': (40.4786, -3.7114),
+                'EN28- GRANADA GENIL ECI NAELLE': (37.1765, -3.5979),
+                'EN29- VIGO ECI NAELLE': (42.2406, -8.7207),
+                'EN30- PRINCESA ECI NAELLE': (40.4254, -3.7171),
+                'EN33- ALICANTE ECI NAELLE': (38.3452, -0.4810),
+                'EN34- PRECIADOS ECI NAELLE': (40.4180, -3.7040),
+                'EN35- VALLADOLID ZORRILLA ECI NAELLE': (41.6360, -4.7280),
+                'EN36- SEVILLA DUQUE ECI NAELLE': (37.3908, -5.9955),
+                'EN37- CORDOBA RONDA ECI NAELLE': (37.8882, -4.7794),
+                'EN38- CORDOBA TEJARES ECI NAELLE': (37.8882, -4.7794),
+                'EN39- ALBACETE ECI NAELLE': (38.9943, -1.8585),
+                'EN41- ECI DIAGONAL B ECI NAELLE': (41.3917, 2.1600),
+                'EN42- ECI MARBELLA ECI NAELLE': (36.5120, -4.8839),
+                'EN46- GRANADA ARABIAL ECI NAELLE': (37.1765, -3.5979),
+                'EN48- MENDEZ ALVARO NAELLE ECI': (40.3965, -3.6780),
+                'EN54- BADAJOZ CONQUISTADORES': (38.8786, -6.9703),
+                'EN62- ECI NAELLE BAHIA DE CADIZ': (36.5297, -6.2927),
+                'EN63- ECI NAELLE ALCALÁ DE HENARES': (40.4820, -3.3640),
 
-            coordenadas_espana = {
-                'MADRID': (40.4168, -3.7038),
-                'SEVILLA': (37.3886, -5.9823),
-                'MALAGA': (36.7213, -4.4214),
-                'VALENCIA': (39.4699, -0.3763),
-                'VIGO': (42.2406, -8.7207),
-                'MURCIA': (37.9834, -1.1299),
-                'SALAMANCA': (40.9701, -5.6635),
-                'CORDOBA': (37.8882, -4.7794),
-                'BILBAO': (43.2630, -2.9350),
-                'ZARAGOZA': (41.6488, -0.8891),
-                'JAEN': (37.7796, -3.7849),
-                'GIJON': (43.5453, -5.6615),
-                'ALBACETE': (38.9943, -1.8585),
-                'GRANADA': (37.1773, -3.5986),
-                'CARTAGENA': (37.6051, -0.9862),
-                'TARRAGONA': (41.1189, 1.2445),
-                'LEON': (42.5987, -5.5671),
-                'SANTANDER': (43.4623, -3.8099),
-                'PAMPLONA': (42.8125, -1.6458),
-                'VITORIA': (42.8467, -2.6727),
-                'CASTELLON': (39.9864, -0.0513),
-                'CADIZ': (36.5271, -6.2886),
-                'JEREZ': (36.6850, -6.1261),
-                'AVILES': (43.5560, -5.9222),
-                'BADAJOZ': (38.8794, -6.9707),
-                'BARCELONA': (41.3851, 2.1734),
-                'LOGROÑO': (42.4627, -2.4449),
-                'LAS PALMAS': (28.1235, -15.4366),
-                'PALMA': (39.5696, 2.6502)
-            }
+                # --- ET ---
+                'ET01- SANCHINARRO ECI TRUCCO': (40.4940, -3.6620),
+                'ET02- SEVILLA NERVION ECI TRUCCO': (37.3831, -5.9719),
+                'ET03- VIGO ECI TRUCCO': (42.2406, -8.7207),
+                'ET04- MALAGA ECI TRUCCO': (36.7213, -4.4214),
+                'ET05- CAMPO NACIONES MADRID ECI TRUCCO': (40.4517, -3.6167),
+                'ET06- VALENCIA-AVDA.FRANCIA ECI TRUCCO': (39.4615, -0.3400),
+                'ET07- ALCALA HENARES ECI TRUCCO': (40.4820, -3.3640),
+                'ET08-(0001) PRECIADOS ECI TRUCCO': (40.4180, -3.7040),
+                'ET09- LAS PALMAS ECI TRUCCO': (28.1297, -15.4457),
+                'ET11- MURCIA ECI TRUCCO': (37.9847, -1.1286),
+                'ET12- PRINCESA ECI TRUCCO': (40.4254, -3.7171),
+                'ET13- TENERIFE ECI TRUCCO': (28.4682, -16.2546),
+                'ET14- SAN JOSE DE VALDERAS CORTE INGLES': (40.3440, -3.7730),
+                'ET15- ARROYOMOLINOS XANADU ECI TRUCCO': (40.2740, -3.9170),
+                'ET16- EL BERCIAL ECI TRUCCO': (40.3175, -3.7317),
+                'ET17- SEVILLA DUQUE ECI TRUCCO': (37.3908, -5.9955),
+                'ET18- SEVILLA SAN JUAN ECI TRUCCO': (37.2830, -6.0090),
+                'ET19- GIJON ECI TRUCCO': (43.5322, -5.6611),
+                'ET20- SALAMANCA ECI TRUCCO': (40.9701, -5.6635),
+                'ET21- CARTAGENA ECI TRUCCO': (37.6257, -0.9966),
+                'ET24- GRANADA GENIL ECI TRUCCO': (37.1765, -3.5979),
+                'ET26- LEON ECI TRUCCO': (42.5987, -5.5671),
+                'ET29- CASTELLANA ECI TRUCCO': (40.4411, -3.6907),
+                'ET30- SOROLLA VALENCIA ECI TRUCCO': (39.4702, -0.3768),
+                'ET31- NUEVO CENTRO VALENCIA ECI TRUCCO': (39.4789, -0.3925),
+                'ET32- VITORIA ECI TRUCCO': (42.8467, -2.6716),
+                'ET33- ECI COSTA LUZ ECI TRUCCO': (36.5297, -6.2927),
+                'ET34- VALLADOLID ZORRILLA ECI TRUCCO': (41.6360, -4.7280),
+                'ET35- VALLADOLID CONSTITUCION ECI TRUCC': (41.6523, -4.7245),
+                'ET37- SANTIAGO ECI TRUCCO': (42.8804, -8.5456),
+                'ET38- GERONA-GIROCENTRE ECI TRUCCO': (41.9810, 2.8249),
+                'ET39- PUERTO VENECIA ECI TRUCCO': (41.6041, -0.8760),
+                'ET41- JAEN ECI TRUCCO': (37.7796, -3.7849),
+                'ET42- MALAGA BAHIA ECI TRUCCO': (36.7213, -4.4214),
+                'ET43- SANTANDER ECI TRUCCO': (43.4623, -3.8099),
+                'ET44- TARRAGONA ECI TRUCCO': (41.1189, 1.2445),
+                'ET45- SABADELL ECI TRUCCO': (41.5463, 2.1086),
+                'ET46- BADAJOZ CONQUISTADORES ECI TRUCCO': (38.8786, -6.9703),
+                'ET47- CAN DRAGO ECI TRUCCO': (41.4410, 2.1835),
+                'ET48- MENDEZ ALVARO ECI TRUCCO': (40.3965, -3.6780),
+                'ET49- ALBACETE ECI TRUCCO': (38.9943, -1.8585),
+                'ET50- JEREZ ECI TRUCCO': (36.6864, -6.1361),
+                'ET51- PARQUESUR ECI TRUCCO': (40.3394, -3.7632),
+                'ET52- VAGUADA ECI TRUCCO': (40.4786, -3.7114),
+                'ET53- CORDOBA ECI TRUCCO': (37.8882, -4.7794),
+                'ET54- CADIZ ECI TRUCCO': (36.5297, -6.2927),
+                'ET55- GRANADA ARABIAL ECI TRUCCO': (37.1765, -3.5979),
+                'ET56- PAMPLONA ECI TRUCCO': (42.8125, -1.6458),
+                'ET57- CASTELLÓN ECI TRUCCO': (39.9864, -0.0513),
+                'ET58- A CORUÑA-RAMON Y CAJAL ECI TRUCCO': (43.3623, -8.4115),
+                'ET61- BAHIA DE ALGECIRAS ECI TRUCCO': (36.1333, -5.4500),
+                'ET62- 7 PALMAS ECI TRUCCO': (28.1081, -15.4565),
+                'ET64- POZUELO ECI TRUCCO': (40.4361, -3.8136),
+                'ET66- CORDOBA TEJARES ECI TRUCCO': (37.8882, -4.7794),
+                'ET68- AVILES ECI TRUCCO': (43.5560, -5.9247),
+                'ET75- EL EJIDO TRUCCO ECI': (36.7763, -2.8146),
 
-            # Procesar datos para España
-            df_espana['lat'] = df_espana['Ciudad'].map(lambda c: coordenadas_espana.get(c, (None, None))[0])
-            df_espana['lon'] = df_espana['Ciudad'].map(lambda c: coordenadas_espana.get(c, (None, None))[1])
+                # --- F / P / R ---
+                'F087 CHAVES': (41.7403, -7.4689),
+                'F095  CIUDAD REAL': (38.9863, -3.9291),
+                'F097 BADAJOZ': (38.8786, -6.9703),
+                'P030 PAMPLONA': (42.8125, -1.6458),
+                'P032 FUENCARRAL': (40.4297, -3.7036),
+                'R010 ARTURO': (40.4483, -3.6900),
+                'R013 BILBAO': (43.2630, -2.9350),
+                'R018 PALACIO DE HIELO': (40.4631, -3.6370),
+                'R025 CASTELLANA': (40.4411, -3.6907),
+                'R026 JORGE JUAN': (40.4246, -3.6820),
+                'R028 PRINCESA': (40.4254, -3.7171)
+            }
+            # Asignar coordenadas según la tienda usando tu diccionario
+            df_espana['lat'] = df_espana['Tienda'].map(lambda t: tienda_a_coord.get(t, (None, None))[0])
+            df_espana['lon'] = df_espana['Tienda'].map(lambda t: tienda_a_coord.get(t, (None, None))[1])
+            
+            # Eliminar filas sin coordenadas
             df_espana = df_espana.dropna(subset=['lat', 'lon'])
 
-            # Agrupar por ciudad incluyendo tanto cantidad como ventas en euros
-            ventas_ciudad_espana = df_espana.groupby(['Ciudad', 'lat', 'lon']).agg({
+            # Agrupar por tienda incluyendo cantidad y ventas
+            ventas_tienda_espana = df_espana.groupby(['Tienda', 'lat', 'lon']).agg({
                 'Cantidad': 'sum',
                 'Beneficio': 'sum'
             }).reset_index()
             
-            # --- FIX: asegurar que 'Cantidad' no tenga valores negativos ni NaN para el mapa ---
-            ventas_ciudad_espana['Cantidad'] = pd.to_numeric(ventas_ciudad_espana['Cantidad'], errors='coerce').fillna(0)
-            ventas_ciudad_espana['Cantidad'] = ventas_ciudad_espana['Cantidad'].clip(lower=0)
+            # --- FIX: asegurar que 'Cantidad' no tenga valores negativos ni NaN ---
+            ventas_tienda_espana['Cantidad'] = pd.to_numeric(ventas_tienda_espana['Cantidad'], errors='coerce').fillna(0)
+            ventas_tienda_espana['Cantidad'] = ventas_tienda_espana['Cantidad'].clip(lower=0)
             # --- FIN FIX ---
-            
-            if not ventas_ciudad_espana.empty:
+
+            if not ventas_tienda_espana.empty:
                 fig_espana = px.scatter_mapbox(
-                    ventas_ciudad_espana,
+                    ventas_tienda_espana,
                     lat='lat',
                     lon='lon',
                     size='Cantidad',
                     color='Cantidad',
-                    hover_name='Ciudad',
+                    hover_name='Tienda',
                     hover_data={'Cantidad': True, 'Beneficio': True},
                     color_continuous_scale='Viridis',
                     zoom=5,
                     height=400,
-                    title="España - Ventas por Ciudad"
+                    title="España - Ventas por Tienda"
                 )
                 fig_espana.update_layout(
                     mapbox_style='open-street-map',
@@ -2385,25 +2432,23 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                 st.plotly_chart(fig_espana, use_container_width=True)
             else:
                 st.info("No hay datos disponibles para España.")
-        
+
         with col4:
-            # Tabla de tiendas por ciudad - España
-            if not ventas_ciudad_espana.empty:
-                st.write("**Tiendas por Ciudad - España**")
-                
-                # Mostrar tabla resumida por ciudad con cantidad y euros
-                resumen_espana = ventas_ciudad_espana.sort_values('Cantidad', ascending=False)
+            if not ventas_tienda_espana.empty:
+                st.write("**Tiendas - España**")
+                resumen_espana = ventas_tienda_espana.sort_values('Cantidad', ascending=False)
                 st.dataframe(
-                    resumen_espana[['Ciudad', 'Cantidad', 'Beneficio']].style.format({
+                    resumen_espana[['Tienda', 'Cantidad', 'Beneficio']].style.format({
                         'Cantidad': '{:,.0f}',
                         'Beneficio': '{:,.2f}€'
                     }),
                     use_container_width=True
                 )
-                
-                
             else:
                 st.info("No hay datos disponibles para España.")
+
+
+            
 
         # 5. Row: Mapa Italia y tabla
         col5, col6 = st.columns(2)
@@ -2743,7 +2788,7 @@ def mostrar_dashboard(df_productos, df_traspasos, df_ventas, seccion):
                         <p style="color: #059669; font-size: 12px; margin: 0;">{:.1f}% del total</p>
                     </div>
                     <div style="flex: 1; text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: white;">
-                        <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Rebajas 2ª (Febrero/Julio)</p>
+                        <p style="color: #666666; font-size: 14px; margin: 0 0 5px 0;">Rebajas 2ª (Febrero/Julio/Agosto)</p>
                         <p style="color: #111827; font-size: 18px; font-weight: bold; margin: 0;">{:,.0f}€</p>
                         <p style="color: #059669; font-size: 12px; margin: 0;">{:.1f}% del total</p>
                     </div>
