@@ -294,6 +294,11 @@ def aplicar_filtros(df_ventas, df_traspasos):
     # Filtrar traspasos si existe
     if df_traspasos is not None:
         df_traspasos_filtrado = df_traspasos.copy()
+        
+        # Asegurar que las tiendas de traspasos estén limpias de espacios para comparación correcta
+        if 'Tienda' in df_traspasos_filtrado.columns:
+            df_traspasos_filtrado['Tienda'] = df_traspasos_filtrado['Tienda'].astype(str).str.strip()
+        
         # Convertir fechas de forma flexible
         for fmt in ['%d/%m/%Y', None]:
             try:
@@ -3326,6 +3331,9 @@ def preprocess_ventas_data(df_ventas):
     if 'Código único' in df_ventas.columns:
         df_ventas['Código único'] = df_ventas['Código único'].astype(str).str.strip()
 
+    # OPTIMIZATION: Process store names more efficiently - Clean whitespace from store names
+    if 'Tienda' in df_ventas.columns:
+        df_ventas['Tienda'] = df_ventas['Tienda'].astype(str).str.strip()
     
     if 'Familia' in df_ventas.columns:
         df_ventas['Familia'] = df_ventas['Familia'].fillna("Sin Familia")
@@ -3505,6 +3513,10 @@ def preprocess_traspasos_data(df_traspasos):
     # OPTIMIZATION: Process code columns more efficiently
     if 'Código único' in df_traspasos.columns:
         df_traspasos['Código único'] = df_traspasos['Código único'].astype(str).str.strip()
+    
+    # OPTIMIZATION: Process store names more efficiently - Clean whitespace from store names
+    if 'Tienda' in df_traspasos.columns:
+        df_traspasos['Tienda'] = df_traspasos['Tienda'].astype(str).str.strip()
     
     # OPTIMIZATION: Process numeric columns more efficiently
     if 'Cantidad enviada' in df_traspasos.columns:
